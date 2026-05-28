@@ -14,3 +14,5 @@
 
 ---
 *All good things to those who wait.*
+
+![主页预览图](preview.jpg)
