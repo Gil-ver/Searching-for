@@ -218,6 +218,7 @@ img {
     justify-content: center;
     align-items: center;
     padding-top: 60px;  /* 留给顶部导航栏 */
+    margin-top: -120px;  /* 整体上移120px */
 }
 
 /* ---------- 搜索主体包裹 ---------- */
@@ -572,6 +573,13 @@ img {
     }
     #foot {
         font-size: 10px;
+    }
+}
+
+/* 高分辨率大屏（4K 150% 等，CSS像素高度 ≥ 1200px）向上偏移 */
+@media screen and (min-height: 1200px) {
+    #head {
+        margin-top: -180px;
     }
 }
 

@@ -36,7 +36,7 @@
                     <span class="top-nav-trigger">图片 ▾</span>
                     <div class="top-nav-dropdown-menu">
                         <a href="https://image.baidu.com/" target="_blank">百度图片</a>
-                        <a href="https://www.google.com/imghp" target="_blank">谷歌图片</a>
+                        <a href="https://www.google.com/imghp" target="_blank">Google图片</a>
                         <a href="https://www.bing.com/images" target="_blank">必应图片</a>
                         <a href="https://image.so.com/" target="_blank">360图片</a>
                         <a href="https://pic.sogou.com/" target="_blank">搜狗图片</a>
@@ -65,7 +65,7 @@
                 </div>
             </div>
             <div id="s-top-right" class="top-nav-right">
-                <a class="weather-wrapper" href="https://www.qweather.com/" target="_blank" title="和风天气">
+                <a class="weather-wrapper" href="https://www.weatherapi.com/weather/" target="_blank" title="WeatherAPI 天气">
                     <span class="weather-location">加载中...</span>
                     <span class="weather-emoji"></span>
                     <span class="weather-temp"></span>
@@ -204,24 +204,62 @@
     })();
     </script>
 
-    <!-- 和风天气 API：IP定位(ip-api.com) → 坐标直查天气 -->
+    <!-- 天气：WeatherAPI 一步到位（q=auto:ip 自动定位 + 中文天气） -->
     <script>
     (function() {
-        var QWEATHER_KEY = 'a1293b73b56448ef98ff396ee9f9e05d';
-        var QWEATHER_HOST = 'kb7p444wf6.re.qweatherapi.com';
+        var API_KEY = '8c4bea04307c4d4ea95190419262805';
 
-        /* 天气图标代码 → Emoji 映射 */
+        /* WeatherAPI condition code → Emoji 映射 */
         function weatherEmoji(code) {
             code = parseInt(code, 10);
-            if (code === 100) return '☀️';
-            if (code >= 101 && code <= 103) return '⛅';
-            if (code === 104) return '☁️';
-            if (code >= 150 && code <= 153) return '🌙';
-            if (code >= 300 && code <= 399) return '🌧️';
-            if (code >= 400 && code <= 499) return '🌨️';
-            if (code >= 500 && code <= 515) return '🌫️';
-            if (code === 900) return '🔥';
-            if (code === 901) return '🥶';
+            if (code === 1000) return '☀️';
+            if (code === 1003) return '⛅';
+            if (code === 1006) return '☁️';
+            if (code === 1009) return '☁️';
+            if (code === 1030) return '🌫️';
+            if (code === 1063) return '🌧️';
+            if (code === 1066) return '🌨️';
+            if (code === 1069) return '🌧️';
+            if (code === 1072) return '🌧️';
+            if (code === 1087) return '⛈️';
+            if (code === 1114) return '🌨️';
+            if (code === 1117) return '🌨️';
+            if (code === 1135) return '🌫️';
+            if (code === 1147) return '🌫️';
+            if (code === 1150) return '🌧️';
+            if (code === 1153) return '🌧️';
+            if (code === 1168) return '🌧️';
+            if (code === 1171) return '🌧️';
+            if (code === 1180) return '🌧️';
+            if (code === 1183) return '🌧️';
+            if (code === 1186) return '🌧️';
+            if (code === 1189) return '🌧️';
+            if (code === 1192) return '🌧️';
+            if (code === 1195) return '🌧️';
+            if (code === 1198) return '🌧️';
+            if (code === 1201) return '🌧️';
+            if (code === 1204) return '🌧️';
+            if (code === 1207) return '🌧️';
+            if (code === 1210) return '🌨️';
+            if (code === 1213) return '🌨️';
+            if (code === 1216) return '🌨️';
+            if (code === 1219) return '🌨️';
+            if (code === 1222) return '🌨️';
+            if (code === 1225) return '🌨️';
+            if (code === 1237) return '🌨️';
+            if (code === 1240) return '🌧️';
+            if (code === 1243) return '🌧️';
+            if (code === 1246) return '🌧️';
+            if (code === 1249) return '🌧️';
+            if (code === 1252) return '🌧️';
+            if (code === 1255) return '🌨️';
+            if (code === 1258) return '🌨️';
+            if (code === 1261) return '🌨️';
+            if (code === 1264) return '🌨️';
+            if (code === 1273) return '⛈️';
+            if (code === 1276) return '⛈️';
+            if (code === 1279) return '⛈️';
+            if (code === 1282) return '⛈️';
             return '🌤️';
         }
 
@@ -232,23 +270,6 @@
             if (locEl) locEl.textContent = city;
             if (emojiEl) emojiEl.textContent = weatherEmoji(iconCode);
             if (tempEl) tempEl.textContent = temp + '°C';
-        }
-
-        /* 英文城市名 → 中文映射 */
-        function toChineseCity(name) {
-            var map = {
-                'Beijing': '北京', 'Shanghai': '上海', 'Guangzhou': '广州', 'Shenzhen': '深圳',
-                'Chengdu': '成都', 'Hangzhou': '杭州', 'Wuhan': '武汉', 'Nanjing': '南京',
-                'Chongqing': '重庆', 'Tianjin': '天津', 'Suzhou': '苏州', 'Xian': '西安',
-                'Changsha': '长沙', 'Zhengzhou': '郑州', 'Jinan': '济南', 'Qingdao': '青岛',
-                'Dalian': '大连', 'Xiamen': '厦门', 'Fuzhou': '福州', 'Putian': '莆田', 'Hefei': '合肥',
-                'Shenyang': '沈阳', 'Harbin': '哈尔滨', 'Changchun': '长春', 'Kunming': '昆明',
-                'Guiyang': '贵阳', 'Nanning': '南宁', 'Shijiazhuang': '石家庄', 'Taiyuan': '太原',
-                'Lanzhou': '兰州', 'Urumqi': '乌鲁木齐', 'Haikou': '海口', 'Ningbo': '宁波',
-                'Wuxi': '无锡', 'Dongguan': '东莞', 'Foshan': '佛山', 'Hohhot': '呼和浩特',
-                'Fujian': '福建', 'Zhejiang': '浙江', 'Jiangsu': '江苏', 'Guangdong': '广东'
-            };
-            return map[name] || name;
         }
 
         var CACHE_KEY = 'weather_cache';
@@ -272,32 +293,49 @@
             fetchWeather();
         })();
 
+        /* WeatherAPI 英文/拼音城市名 → 中文映射 */
+        function toChineseCity(name) {
+            var map = {
+                'Beijing': '北京', 'Shanghaishih': '上海', 'Shanghai': '上海',
+                'Guangzhou': '广州', 'Shenzhen': '深圳', 'Chengdu': '成都',
+                'Hangzhou': '杭州', 'Wuhan': '武汉', 'Nanjing': '南京',
+                'Chongqing': '重庆', 'Tianjin': '天津', 'Suzhou': '苏州',
+                'Xian': '西安', 'Changsha': '长沙', 'Zhengzhou': '郑州',
+                'Jinan': '济南', 'Qingdao': '青岛', 'Dalian': '大连',
+                'Xiamen': '厦门', 'Fuzhou': '福州', 'Putian': '莆田',
+                'Hefei': '合肥', 'Shenyang': '沈阳', 'Harbin': '哈尔滨',
+                'Changchun': '长春', 'Kunming': '昆明', 'Guiyang': '贵阳',
+                'Nanning': '南宁', 'Shijiazhuang': '石家庄', 'Taiyuan': '太原',
+                'Lanzhou': '兰州', 'Urumqi': '乌鲁木齐', 'Haikou': '海口',
+                'Ningbo': '宁波', 'Wuxi': '无锡', 'Dongguan': '东莞',
+                'Foshan': '佛山', 'Hohhot': '呼和浩特', 'Hong Kong': '香港',
+                'Macau': '澳门', 'Macao': '澳门', 'Taibei': '台北',
+                'Taipei': '台北', 'Lhasa': '拉萨', 'Yinchuan': '银川',
+                'Xining': '西宁', 'Nanchang': '南昌', 'Nanning': '南宁',
+                'Guiyang': '贵阳', 'Haikou': '海口', 'Hefei': '合肥'
+            };
+            return map[name] || name;
+        }
+
         function fetchWeather() {
-            /* Step 1: ip-api.com 获取坐标 + 城市名 */
-            fetch('http://ip-api.com/json/?fields=status,city,regionName,lat,lon')
+            /* q=auto:ip 自动IP定位，一步到位（不加lang=zh，用英文城市名+映射表翻译） */
+            fetch('https://api.weatherapi.com/v1/current.json?key=' + API_KEY
+                + '&q=auto:ip')
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
-                    if (data.status !== 'success' || !data.lat || !data.lon) {
+                    if (data && data.current && data.location) {
+                        var rawName = data.location.name;
+                        var city = toChineseCity(rawName);
+                        var code = data.current.condition.code;
+                        var temp = data.current.temp_c;
+                        updateWeather(city, code, temp);
+                        localStorage.setItem(CACHE_KEY, JSON.stringify({
+                            city: city, icon: code, temp: temp,
+                            time: Date.now()
+                        }));
+                    } else {
                         fallback();
-                        return;
                     }
-                    var city = toChineseCity(data.city || data.regionName || '');
-                    /* Step 2: 和风天气直接用坐标查 (lon,lat 格式) */
-                    return fetch('https://' + QWEATHER_HOST + '/v7/weather/now?location='
-                        + data.lon + ',' + data.lat + '&key=' + QWEATHER_KEY)
-                        .then(function(r) { return r.json(); })
-                        .then(function(w) {
-                            if (w.code === '200' && w.now) {
-                                updateWeather(city, w.now.icon, w.now.temp);
-                                /* 存入缓存 */
-                                localStorage.setItem(CACHE_KEY, JSON.stringify({
-                                    city: city, icon: w.now.icon, temp: w.now.temp,
-                                    time: Date.now()
-                                }));
-                            } else {
-                                fallback();
-                            }
-                        });
                 })
                 .catch(function() {
                     fallback();
