@@ -3,7 +3,7 @@
 一个极简、纯净、无广告的浏览器个人主页。基于 HTML5、CSS3 和原生 JavaScript 构建，采用了毛玻璃视觉风格。
 
 ## 🌐 线上直达
-👉 **[点击这里访问我的搜索页](https://glm1065131557.github.io/Searching-for/)** 👈
+👉 **[点击这里访问我的搜索页](https://gil-ver.github.io/Searching-for/)** 👈
 
 ## ✨ 核心特色
 - **极简设计**：中央半透明毛玻璃卡片设计，拒绝任何多余的视觉干扰。
