@@ -218,7 +218,7 @@ img {
     justify-content: center;
     align-items: center;
     padding-top: 60px;  /* 留给顶部导航栏 */
-    margin-top: -120px;  /* 整体上移120px */
+    margin-top: -100px;  /* 整体上移100px */
 }
 
 /* ---------- 搜索主体包裹 ---------- */
@@ -556,30 +556,86 @@ img {
     }
 }
 
-/* 手机/平板竖屏 */
+/* 手机版：仅保留壁纸背景 + Logo + 搜索框 + 底部英文 */
 @media screen and (max-width: 768px) {
     #wrapper {
         min-width: auto;
     }
-    .top-nav {
-        padding-left: 12px;
+
+    /* ---------- 隐藏：顶部导航 / 天气 / 顶栏底色 / 导航卡片 / 以图搜图 ---------- */
+    .top-nav,
+    .top-nav-right,
+    #s-nav-wrapper,
+    .search-left-icon-wrapper {
+        display: none;
     }
-    .top-nav a {
-        margin-right: 8px;
-        font-size: 12px;
+    #wrapper::before {
+        display: none;
     }
-    .top-nav-right {
-        padding-right: 12px;
+
+    /* ---------- 头部重置（顶栏隐藏后不需要留空间，取消垂直偏移） ---------- */
+    #head {
+        padding-top: 0;
+        margin-top: 0;
     }
+
+    /* ---------- Logo 缩小 ---------- */
+    #lg {
+        height: auto;
+        min-height: 0;
+    }
+    .logo-layer {
+        width: 180px;
+        height: 57px;
+        margin-left: -90px;
+    }
+
+    /* ---------- 搜索框自适应宽度 ---------- */
+    #form {
+        width: 92vw;
+        max-width: 500px;
+    }
+    .s_form_wrapper {
+        width: 100%;
+    }
+    #kw {
+        padding: 0 110px 0 14px;
+    }
+    #kw:not(:placeholder-shown) {
+        padding: 0 110px 4px 14px;
+    }
+
+    /* ---------- 引擎按钮缩小 ---------- */
+    .search-engine-btns {
+        right: 4px;
+        gap: 4px;
+    }
+    .search-engine-btn {
+        width: 30px;
+        height: 30px;
+    }
+    .search-engine-btn img {
+        width: 30px;
+        height: 30px;
+    }
+
+    /* ---------- 底部文字 ---------- */
     #foot {
-        font-size: 10px;
+        font-size: 12px;
     }
 }
 
-/* 高分辨率大屏（4K 150% 等，CSS像素高度 ≥ 1200px）向上偏移 */
-@media screen and (min-height: 1200px) {
+/* 高分辨率大屏（4K 150% 等，CSS像素高度 ≥ 1200px）向上偏移（仅桌面端） */
+@media screen and (min-height: 1200px) and (min-width: 769px) {
     #head {
         margin-top: -180px;
+    }
+}
+
+/* 小屏幕高度（≤960px）减少上移量，避免内容偏上（仅桌面端） */
+@media screen and (max-height: 960px) and (min-width: 769px) {
+    #head {
+        margin-top: -60px;
     }
 }
 
