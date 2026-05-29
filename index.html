@@ -205,7 +205,7 @@
         }
         restoreSearch();
         window.addEventListener('pageshow', function(e) {
-            if (e.persisted) restoreSearch();
+            if (e.persisted) setTimeout(restoreSearch, 100);
         });
     })();
     </script>
