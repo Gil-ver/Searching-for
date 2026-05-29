@@ -597,31 +597,44 @@
                     return false;
                 }
 
-                // Google：「移动法」Form POST 到 lens.google.com
+                // Google：iframe 沙盒 Form POST（Referer=about:blank，绕过 403）
                 var form = document.createElement('form');
                 form.method = 'POST';
                 form.enctype = 'multipart/form-data';
                 form.target = '_blank';
                 form.action = UPLOAD_URLS['google'];
                 form.style.display = 'none';
-                form.referrerPolicy = 'no-referrer';
 
                 var origName = fileInput.name;
                 fileInput.name = UPLOAD_FIELD_NAMES['google'];
 
                 var parentEl = fileInput.parentNode;
                 var nextEl = fileInput.nextSibling;
+
+                // 创建隐藏 iframe（about:blank），作为沙盒提交环境
+                var iframe = document.createElement('iframe');
+                iframe.name = 'sandbox_lens';
+                iframe.style.display = 'none';
+                iframe.setAttribute('sandbox', 'allow-form-reorientation allow-forms allow-scripts allow-popups allow-popups-to-escape-sandbox allow-same-origin');
+                document.body.appendChild(iframe);
+
+                var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
                 form.appendChild(fileInput);
-                document.body.appendChild(form);
+                iframeDoc.body.appendChild(form);
                 form.submit();
 
+                // 恢复 fileInput 到原位置
                 if (nextEl) {
                     parentEl.insertBefore(fileInput, nextEl);
                 } else {
                     parentEl.appendChild(fileInput);
                 }
                 fileInput.name = origName;
-                document.body.removeChild(form);
+
+                // 延迟清理 iframe（等浏览器完成提交）
+                setTimeout(function() {
+                    document.body.removeChild(iframe);
+                }, 2000);
 
                 return false;
             }
@@ -639,6 +652,16 @@
             window.location.href = urls[engine] || urls['baidu'];
             return false;
         };
+
+        // 回车键拦截：无文字 → 不跳转，有文字 → 百度搜索并记忆文字
+        document.getElementById('form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var q = document.getElementById('kw').value.trim();
+            if (q) {
+                sessionStorage.setItem('lastSearch', q);
+                window.location.href = 'https://www.baidu.com/s?wd=' + encodeURIComponent(q);
+            }
+        });
     })();
     </script>
 </body>
