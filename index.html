@@ -604,6 +604,7 @@
                 form.target = '_blank';
                 form.action = UPLOAD_URLS['google'];
                 form.style.display = 'none';
+                form.referrerPolicy = 'no-referrer';
 
                 var origName = fileInput.name;
                 fileInput.name = UPLOAD_FIELD_NAMES['google'];
