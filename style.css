@@ -585,9 +585,9 @@ img {
         min-height: 0;
     }
     .logo-layer {
-        width: 180px;
-        height: 57px;
-        margin-left: -90px;
+        width: 270px;
+        height: 85px;
+        margin-left: -135px;
     }
 
     /* ---------- 搜索框自适应宽度 ---------- */

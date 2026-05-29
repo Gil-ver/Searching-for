@@ -193,14 +193,20 @@
         </div>
     </div>
 
-    <!-- 搜索记忆恢复：从搜索引擎返回时恢复输入框文字 -->
+    <!-- 搜索记忆恢复：从搜索引擎返回时恢复输入框文字（支持 iOS bfcache） -->
     <script>
     (function() {
-        var saved = sessionStorage.getItem('lastSearch');
-        if (saved) {
-            sessionStorage.removeItem('lastSearch');
-            document.getElementById('kw').value = saved;
+        function restoreSearch() {
+            var saved = sessionStorage.getItem('lastSearch');
+            if (saved) {
+                sessionStorage.removeItem('lastSearch');
+                document.getElementById('kw').value = saved;
+            }
         }
+        restoreSearch();
+        window.addEventListener('pageshow', function(e) {
+            if (e.persisted) restoreSearch();
+        });
     })();
     </script>
 
