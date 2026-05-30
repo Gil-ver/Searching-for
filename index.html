@@ -128,15 +128,15 @@
                             <img class="site-pill-icon" src="index_files/list - 2.png" alt="京东">
                             <span class="site-pill-name">京东</span>
                         </a>
-                        <a class="site-pill" href="https://mail.qq.com/" target="_blank">
+                        <a class="site-pill" href="https://mail.qq.com/" target="_blank" data-bgm-action="prev">
                             <img class="site-pill-icon" src="index_files/list - 3.png" alt="QQ邮箱">
                             <span class="site-pill-name">QQ邮箱</span>
                         </a>
-                        <a class="site-pill" href="https://music.163.com/" target="_blank">
+                        <a class="site-pill" href="https://music.163.com/" target="_blank" data-bgm-action="playpause">
                             <img class="site-pill-icon" src="index_files/list - 4.png" alt="网易云音乐">
                             <span class="site-pill-name">网易云音乐</span>
                         </a>
-                        <a class="site-pill" href="https://x.com/" target="_blank">
+                        <a class="site-pill" href="https://x.com/" target="_blank" data-bgm-action="next">
                             <img class="site-pill-icon" src="index_files/list - 5.png" alt="X">
                             <span class="site-pill-name">X</span>
                         </a>
@@ -637,6 +637,16 @@
 
         document.addEventListener('click', toggleDebug, true);
 
+        // 阻止 Logo 右键菜单（不允许保存图片），不影响左键 Ctrl+Click
+        // 直接绑定在 img 元素上最可靠
+        (function() {
+            var imgA = document.getElementById('s_lg_img_a');
+            var imgB = document.getElementById('s_lg_img_b');
+            function blockRightClick(e) { e.preventDefault(); }
+            if (imgA) imgA.addEventListener('contextmenu', blockRightClick);
+            if (imgB) imgB.addEventListener('contextmenu', blockRightClick);
+        })();
+
         /* 刷新按钮：清除缓存后重新检测 */
         if (refreshBtn) {
             refreshBtn.addEventListener('click', function(e) {
@@ -867,5 +877,176 @@
         });
     })();
     </script>
+
+    <!-- 歌单数据内联（绕过 file:// 下的 fetch CORS 限制） -->
+    <script src="_bgm_data.js"></script>
+
+    <!-- 隐藏的网易云外链播放器 -->
+    <iframe id="bgm-player-frame"
+        style="position:fixed;top:-10px;left:-10px;width:1px;height:1px;opacity:0;pointer-events:none;border:none;"
+        allow="autoplay"
+        sandbox="allow-scripts allow-same-origin">
+    </iframe>
+
+    <!-- BGM 播客播放器控制脚本 -->
+    <script>
+    (function() {
+        var playlist = window.__BGM_PLAYLIST__ || [];
+        var currentIndex = -1;
+        var shuffleMode = false;
+        var loopMode = 'all'; // all | one | off
+        var playing = false;
+        var nextTimeout = null;
+        var iframe = null;
+
+        iframe = document.getElementById('bgm-player-frame');
+        if (playlist.length > 0) {
+            console.log('[BGM] 歌单已就绪: ' + playlist.length + ' 首');
+        } else {
+            console.warn('[BGM] 歌单为空！请先运行 python update_playlist.py 生成 _bgm_data.js');
+        }
+
+        // 根据节目时长计算自动切歌延迟（预留 2 秒缓冲）
+        function getEndDelay(program) {
+            return (program.duration || 240000) + 2000;
+        }
+
+        // 用 programId 加载外链播放器
+        function loadIframe(programId) {
+            iframe.src = 'https://music.163.com/outchain/player?type=3&id=' + programId + '&auto=1&height=1';
+        }
+
+        function playIndex(idx) {
+            if (idx < 0 || idx >= playlist.length) return;
+            clearTimeout(nextTimeout);
+            currentIndex = idx;
+            playing = true;
+            var p = playlist[idx];
+            loadIframe(p.programId);
+            console.log('[BGM] ▶ ' + p.name + ' - ' + p.artist + ' (' + (idx+1) + '/' + playlist.length + ')');
+
+            // 根据歌曲实际时长 + 2s 缓冲自动切歌
+            nextTimeout = setTimeout(function() {
+                if (!playing) return;
+                if (loopMode === 'one') {
+                    // 单曲循环：重播当前
+                    playIndex(currentIndex);
+                } else {
+                    nextSong();
+                }
+            }, getEndDelay(p));
+        }
+
+        function prevSong() {
+            if (playlist.length === 0) return;
+            var idx;
+            if (shuffleMode) {
+                idx = Math.floor(Math.random() * playlist.length);
+            } else {
+                idx = currentIndex - 1;
+                if (idx < 0) idx = playlist.length - 1;
+            }
+            playIndex(idx);
+        }
+
+        function nextSong() {
+            if (playlist.length === 0) return;
+            var idx;
+            if (shuffleMode) {
+                idx = Math.floor(Math.random() * playlist.length);
+            } else {
+                idx = currentIndex + 1;
+                if (idx >= playlist.length) {
+                    if (loopMode === 'all') {
+                        idx = 0;
+                    } else {
+                        // off: 停止播放
+                        clearTimeout(nextTimeout);
+                        playing = false;
+                        console.log('[BGM] ⏹ 播放完毕（列表结束）');
+                        return;
+                    }
+                }
+            }
+            playIndex(idx);
+        }
+
+        function togglePlayPause() {
+            if (playlist.length === 0) return;
+            if (currentIndex === -1) {
+                // 首次播放
+                playIndex(0);
+            } else if (playing) {
+                // 暂停：清空 iframe 停止播放
+                clearTimeout(nextTimeout);
+                iframe.src = '';
+                playing = false;
+                console.log('[BGM] ⏸ 已暂停');
+            } else {
+                // 继续播放：重新加载当前歌曲（从头开始）
+                playIndex(currentIndex);
+            }
+        }
+
+        function toggleShuffle() {
+            shuffleMode = !shuffleMode;
+            console.log('[BGM] 🔀 随机播放: ' + (shuffleMode ? 'ON' : 'OFF'));
+        }
+
+        function toggleLoop() {
+            if (loopMode === 'all') loopMode = 'one';
+            else if (loopMode === 'one') loopMode = 'off';
+            else loopMode = 'all';
+            var label = loopMode === 'all' ? '全部循环' : loopMode === 'one' ? '单曲循环' : '关闭循环';
+            console.log('[BGM] 🔁 循环模式: ' + label);
+        }
+
+        // 绑定导航 pill 的 Ctrl+Click
+        var pills = document.querySelectorAll('.site-pill[data-bgm-action]');
+        pills.forEach(function(pill) {
+            var action = pill.getAttribute('data-bgm-action');
+
+            // mousedown 捕获：阻止 Ctrl+Click 时的默认导航跳转
+            pill.addEventListener('mousedown', function(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                }
+            }, true);
+
+            // click 捕获：执行 BGM 操作
+            pill.addEventListener('click', function(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    switch(action) {
+                        case 'prev': prevSong(); break;
+                        case 'playpause': togglePlayPause(); break;
+                        case 'next': nextSong(); break;
+                    }
+                }
+            }, true);
+        });
+
+        // 键盘快捷键
+        document.addEventListener('keydown', function(e) {
+            if (!(e.ctrlKey || e.metaKey)) return;
+            switch(e.key.toLowerCase()) {
+                case 's':
+                    e.preventDefault();
+                    toggleShuffle();
+                    break;
+                case 'l':
+                    e.preventDefault();
+                    toggleLoop();
+                    break;
+            }
+        });
+
+        // 启动时静默预加载歌单
+        console.log('[BGM] 播客播放器就绪。\n  Ctrl+Click 导航图标:\n    QQ邮箱 = ⏮ 上一首\n    网易云音乐 = ▶⏸ 播放/暂停\n    X = ⏭ 下一首\n  快捷键:\n    Ctrl+S = 🔀 随机\n    Ctrl+L = 🔁 循环 (全部/单曲/关闭)');
+    })();
+    </script>
+
 </body>
 </html>
