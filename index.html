@@ -809,7 +809,12 @@
                     return false;
                 }
 
-                // Google：「移动法」Form POST 到 lens.google.com
+                // Google：本地 file:// 用 Form POST，线上因 Google 安全策略 403 则打开图片首页
+                if (window.location.protocol !== 'file:') {
+                    window.open('https://www.google.com.hk/imghp', '_blank');
+                    return false;
+                }
+
                 var form = document.createElement('form');
                 form.method = 'POST';
                 form.enctype = 'multipart/form-data';
