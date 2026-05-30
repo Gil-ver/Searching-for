@@ -40,6 +40,11 @@ img {
     pointer-events: none;
 }
 
+/* Logo 允许点击（用于 Ctrl+Click 调试） */
+.logo-layer {
+    pointer-events: auto;
+}
+
 /* ---------- 皮肤背景层 ---------- */
 #skin-bg {
     position: fixed;
@@ -48,7 +53,6 @@ img {
     width: 100%;
     height: 100%;
     z-index: -1;
-    /* 必应每日壁纸，微软服务器自动更新 */
     background-color: #000;
     background-image: url('https://api.dujin.org/bing/1920.php');
     background-size: cover;
@@ -528,7 +532,7 @@ img {
 #foot {
     text-align: center;
     padding: 20px 0;
-    color: rgba(255, 255, 255, 0.8);
+    color: rgba(0, 0, 0, 0.8);
     font-size: 15px;
     position: relative;
     top: 10px;
@@ -680,4 +684,107 @@ img {
 /* 有图片时 hover 缩略图半透明，露出 × 按钮 */
 .search-left-icon-wrapper.has-image .search-left-icon-label:hover .search-left-icon {
     opacity: 0.5;
+}
+
+/* ========================================
+   Logo 亮度检测调试：采样区域描边 + 标签
+   ======================================== */
+
+/* 采样区域白色虚线描边（默认隐藏） */
+#logo-sample-outline {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    border: 2px dashed rgba(255, 255, 255, 0.75);
+    pointer-events: none;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+#logo-sample-outline.debug-active {
+    display: block;
+}
+
+/* 描边框内底部标签：成功/失败 | 色值 | 黑色/白色 */
+#logo-sample-label {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 2px 10px 4px;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 3px 3px 0 0;
+    color: #fff;
+    font-family: Arial, "Microsoft YaHei", sans-serif;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+#logo-sample-outline.debug-active #logo-sample-label {
+    display: block;
+}
+
+/* 状态图标：刷新按钮正上方，水平居中 + 4px间距 */
+#logo-sample-status-icon {
+    display: none;
+    position: absolute;
+    right: 4px;
+    bottom: 30px;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 1;
+}
+#logo-sample-outline.debug-active #logo-sample-status-icon {
+    display: block;
+}
+#logo-sample-status-icon.status-success {
+    color: #4caf50;
+    background: rgba(0, 0, 0, 0.5);
+}
+#logo-sample-status-icon.status-error {
+    color: #f44336;
+    background: rgba(0, 0, 0, 0.5);
+}
+#logo-sample-status-icon.status-pending {
+    color: #ffc107;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+/* 刷新按钮：圆形，贴死右下角 */
+#logo-sample-refresh-btn {
+    display: none;
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font-size: 13px;
+    line-height: 24px;
+    text-align: center;
+    cursor: pointer;
+    pointer-events: auto;
+    z-index: 2;
+    transition: background 0.15s;
+}
+#logo-sample-refresh-btn:hover {
+    background: rgba(0, 0, 0, 0.7);
+}
+#logo-sample-refresh-btn:active {
+    background: rgba(255, 255, 255, 0.3);
+}
+#logo-sample-outline.debug-active #logo-sample-refresh-btn {
+    display: block;
 }

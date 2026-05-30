@@ -65,7 +65,7 @@
                 </div>
             </div>
             <div id="s-top-right" class="top-nav-right">
-                <a class="weather-wrapper" href="https://www.weatherapi.com/weather/" target="_blank" title="WeatherAPI 天气">
+                <a class="weather-wrapper" href="https://www.weatherapi.com/weather/" target="_blank">
                     <span class="weather-location">加载中...</span>
                     <span class="weather-emoji"></span>
                     <span class="weather-temp"></span>
@@ -76,8 +76,8 @@
             <div id="head_wrapper">
                 <!-- Logo 区域 -->
                 <div id="lg">
-                    <img id="s_lg_img_a" class="logo-layer logo-current" src="index_files/logo_white.png" width="270" height="85" alt="Searching for..." title="Searching for...">
-                    <img id="s_lg_img_b" class="logo-layer logo-next" src="index_files/logo_white.png" width="270" height="85" alt="Searching for...">
+                    <img id="s_lg_img_a" class="logo-layer logo-current" src="index_files/logo_dark.png" width="270" height="85" alt="Searching for...">
+                    <img id="s_lg_img_b" class="logo-layer logo-next" src="index_files/logo_dark.png" width="270" height="85" alt="Searching for...">
                 </div>
 
                 <!-- 搜索表单 -->
@@ -92,18 +92,18 @@
                             </label>
                         </div>
                         <span id="s_ipt_wr">
-                            <input type="text" name="wd" id="kw" maxlength="255" autocomplete="off" placeholder="请输入搜索内容">
+                            <input type="text" name="wd" id="kw" maxlength="255" autocomplete="off" autofocus placeholder="请输入搜索内容">
                         </span>
                         <div class="search-engine-btns">
-                            <a id="search-bing-btn" class="search-engine-btn" href="https://www.bing.com/search?q=" title="Bing 搜索"
+                            <a id="search-bing-btn" class="search-engine-btn" href="https://www.bing.com/search?q="
                                onclick="return doSearch('bing', event)">
                                 <img src="index_files/search_bing.png" alt="Bing" width="36" height="36">
                             </a>
-                            <a class="search-engine-btn" href="https://www.google.com/search?q=" title="Google 搜索"
+                            <a class="search-engine-btn" href="https://www.google.com/search?q="
                                onclick="return doSearch('google', event)">
                                 <img src="index_files/search_google.png" alt="Google" width="36" height="36">
                             </a>
-                            <a class="search-engine-btn" href="https://www.baidu.com/s?wd=" title="百度搜索"
+                            <a class="search-engine-btn" href="https://www.baidu.com/s?wd="
                                onclick="return doSearch('baidu', event)">
                                 <img src="index_files/search_baidu.png" alt="百度" width="36" height="36">
                             </a>
@@ -191,6 +191,14 @@
         <div id="foot">
             <span> - All good things to those who wait. - </span>
         </div>
+
+        <!-- Logo 采样区域描边 -->
+        <div id="logo-sample-outline">
+            <div id="logo-sample-label"></div>
+            <span id="logo-sample-status-icon"></span>
+            <button id="logo-sample-refresh-btn" title="清除缓存并刷新检测">&#x1F501;</button>
+        </div>
+
     </div>
 
     <!-- 搜索记忆恢复：从搜索引擎返回时恢复输入框文字（支持 iOS bfcache） -->
@@ -350,16 +358,18 @@
     })();
     </script>
 
-    <!-- Logo 自适应：Canvas 采样壁纸背景明暗，自动切换深色/浅色 Logo -->
+    <!-- Logo 自适应：fetch + Blob URL 避免代理不一致，HSL-L 亮度判断 -->
     <script>
     (function() {
         var LOGO_DARK   = 'index_files/logo_dark.png';
         var LOGO_WHITE  = 'index_files/logo_white.png';
-        var SAMPLE_SCALE = 1.6;
+        var SAMPLE_SCALE = 1.4;
         var BRIGHT_THRESHOLD = 100;
-        var CACHE_KEY = 'logo_adapt';
         var FOOT_COLOR_DARK  = 'rgba(0, 0, 0, 0.8)';
         var FOOT_COLOR_WHITE = 'rgba(255, 255, 255, 0.8)';
+        var CACHE_KEY = 'logo_adapt_cache';
+        var CACHE_TTL  = 600000; // 10 分钟
+        window.__logoCacheKey = CACHE_KEY;
 
         var logoCurrent = document.getElementById('s_lg_img_a');
         var logoNext    = document.getElementById('s_lg_img_b');
@@ -367,29 +377,53 @@
 
         var skinBg = document.getElementById('skin-bg');
         if (!skinBg) return;
-        var bgStyle = getComputedStyle(skinBg).backgroundImage;
-        var urlMatch = bgStyle.match(/url\(["']?([^"')]+)["']?\)/);
-        if (!urlMatch) return;
-        var wallpaperUrl = urlMatch[1];
 
-        // localStorage 缓存：日期不变 AND 壁纸URL不变 → 命中缓存
-        try {
-            var today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-            var cached = JSON.parse(localStorage.getItem(CACHE_KEY));
-            if (cached && cached.date === today && cached.url === wallpaperUrl) {
-                logoCurrent.src = cached.logo;
-                logoNext.src    = cached.logo;
+        // 调试数据（Ctrl+Click Footer 触发查看）
+        window.__logoDebugData = {
+            status: 'pending',          // 'pending' | 'cached' | 'success' | 'error_fetch' | 'error_canvas' | 'error_unknown'
+            wallpaperUrl: '',
+            rawW: 0, rawH: 0,           // 壁纸尺寸
+            sX: 0, sY: 0, sW: 0, sH: 0, // 采样区域 viewport 坐标
+            brightness: 0,               // 平均亮度
+            count: 0,                    // 有效像素数
+            threshold: BRIGHT_THRESHOLD,
+            formula: 'Relative',
+            logo: '',                    // 判定结果: 'logo_dark' | 'logo_white'
+            cached: false,
+            errorMsg: ''
+        };
+
+        var WALLPAPER_API = 'https://api.dujin.org/bing/1920.php';
+
+        function applyLogo(newSrc) {
+            var currentSrc = logoCurrent.src;
+            if (currentSrc.indexOf(newSrc) !== -1) return;
+
+            function doSwitch() {
+                logoNext.src = newSrc;
+                logoCurrent.classList.remove('logo-current');
+                logoCurrent.classList.add('logo-next');
+                logoNext.classList.remove('logo-next');
+                logoNext.classList.add('logo-current');
+                var tmp = logoCurrent;
+                logoCurrent = logoNext;
+                logoNext = tmp;
                 var footEl = document.getElementById('foot');
-                if (footEl && cached.footColor) footEl.style.color = cached.footColor;
-                return;
+                if (footEl) footEl.style.color = (newSrc === LOGO_DARK ? FOOT_COLOR_DARK : FOOT_COLOR_WHITE);
             }
-        } catch(e) {}
 
-        var img = new Image();
-        img.crossOrigin = 'anonymous';
-        var proxyUrl = 'https://images.weserv.nl/?url=' + encodeURIComponent(wallpaperUrl);
+            var preload = new Image();
+            var switched = false;
+            preload.onload = function() {
+                if (!switched) { switched = true; doSwitch(); }
+            };
+            preload.src = newSrc;
+            if (preload.complete) {
+                if (!switched) { switched = true; doSwitch(); }
+            }
+        }
 
-        img.onload = function() {
+        function processImage(img) {
             try {
                 var rect = logoCurrent.getBoundingClientRect();
                 var vpW  = window.innerWidth;
@@ -397,11 +431,19 @@
                 var rawW = img.naturalWidth;
                 var rawH = img.naturalHeight;
 
-                // 采样区域：Logo 居中扩大 1.6 倍
+                // 采样区域：Logo 居中扩大 1.4 倍
                 var sW = rect.width  * SAMPLE_SCALE;
                 var sH = rect.height * SAMPLE_SCALE;
                 var sX = rect.left + rect.width  / 2 - sW / 2;
                 var sY = rect.top  + rect.height / 2 - sH / 2;
+
+                // 记录采样区域 viewport 坐标（供调试描边用）
+                window.__logoDebugData.rawW = rawW;
+                window.__logoDebugData.rawH = rawH;
+                window.__logoDebugData.sX = Math.round(sX);
+                window.__logoDebugData.sY = Math.round(sY);
+                window.__logoDebugData.sW = Math.round(sW);
+                window.__logoDebugData.sH = Math.round(sH);
 
                 // cover + center 反向坐标换算
                 var scale  = Math.max(vpW / rawW, vpH / rawH);
@@ -429,8 +471,8 @@
                 try {
                     imageData = ctx.getImageData(0, 0, srcW, srcH);
                 } catch(taintedErr) {
-                    console.error('[Logo自适应] Canvas tainted! getImageData 失败:', taintedErr.message);
-                    console.error('[Logo自适应] proxyUrl:', proxyUrl);
+                    window.__logoDebugData.status = 'error_canvas';
+                    window.__logoDebugData.errorMsg = 'Canvas tainted: ' + taintedErr.message;
                     return;
                 }
                 var data = imageData.data;
@@ -439,54 +481,224 @@
                 for (var i = 0; i < data.length; i += 4) {
                     if (data[i + 3] < 128) continue;
                     var r = data[i], g = data[i + 1], b = data[i + 2];
-                    brightTotal += 0.299 * r + 0.587 * g + 0.114 * b;
+                    // 相对亮度（WCAG） = 0.2126R + 0.7152G + 0.0722B
+                    brightTotal += 0.2126 * r + 0.7152 * g + 0.0722 * b;
                     count++;
                 }
                 if (count === 0) return;
 
                 var brightness = brightTotal / count;
-                // 亮度 >= threshold → 黑色Logo；亮度 < threshold → 白色Logo
+                // 相对亮度 >= threshold → 黑色Logo；相对亮度 < threshold → 白色Logo
                 var newSrc = (brightness >= BRIGHT_THRESHOLD)
                     ? LOGO_DARK : LOGO_WHITE;
 
-                var currentSrc = logoCurrent.src;
-                if (currentSrc.indexOf(newSrc) === -1) {
-                    function doSwitch() {
-                        logoNext.src = newSrc;
-                        logoCurrent.classList.remove('logo-current');
-                        logoCurrent.classList.add('logo-next');
-                        logoNext.classList.remove('logo-next');
-                        logoNext.classList.add('logo-current');
-                        var tmp = logoCurrent;
-                        logoCurrent = logoNext;
-                        logoNext = tmp;
-                        var footEl = document.getElementById('foot');
-                        if (footEl) footEl.style.color = (newSrc === LOGO_DARK ? FOOT_COLOR_DARK : FOOT_COLOR_WHITE);
-                    }
-                    var preload = new Image();
-                    var switched = false;
-                    preload.onload = function() {
-                        if (!switched) { switched = true; doSwitch(); }
-                    };
-                    preload.src = newSrc;
-                    if (preload.complete) {
-                        if (!switched) { switched = true; doSwitch(); }
-                    }
-                }
+                applyLogo(newSrc);
 
-                localStorage.setItem(CACHE_KEY, JSON.stringify({
-                    date: new Date().toISOString().slice(0, 10),
-                    url: wallpaperUrl,
-                    logo: newSrc,
-                    footColor: (newSrc === LOGO_DARK ? FOOT_COLOR_DARK : FOOT_COLOR_WHITE)
-                }));
+                window.__logoDebugData.status = 'success';
+                window.__logoDebugData.brightness = Math.round(brightness * 10) / 10;
+                window.__logoDebugData.count = count;
+                window.__logoDebugData.logo = newSrc === LOGO_DARK ? 'logo_dark' : 'logo_white';
+                window.__logoDebugData.cached = false;
+                window.__logoDebugData.errorMsg = '';
+
+                // 写入 10 分钟缓存
+                try {
+                    localStorage.setItem(CACHE_KEY, JSON.stringify({
+                        timestamp: Date.now(),
+                        logo: newSrc,
+                        brightness: Math.round(brightness * 10) / 10,
+                        footColor: (newSrc === LOGO_DARK ? FOOT_COLOR_DARK : FOOT_COLOR_WHITE)
+                    }));
+                } catch(e) {}
+
+                // 如果调试面板开着，自动刷新
+                if (typeof refreshDebugPanel === 'function') refreshDebugPanel();
             } catch(e) {
-                // Canvas 被污染或任何异常 → 保持默认
+                window.__logoDebugData.status = 'error_unknown';
+                window.__logoDebugData.errorMsg = e.message || 'Unknown error';
             }
-        };
+        }
 
-        img.onerror = function() {};
-        img.src = proxyUrl;
+        function detectAndSwitch() {
+            // 读取缓存（不判过期）
+            var cached = null;
+            try { cached = JSON.parse(localStorage.getItem(CACHE_KEY)); } catch(e) {}
+
+            // 只要有缓存，立即应用作为过渡方案（避免从默认黑色闪烁）
+            if (cached) {
+                applyLogo(cached.logo);
+                var footEl = document.getElementById('foot');
+                if (footEl) footEl.style.color = cached.footColor;
+                window.__logoDebugData.brightness = cached.brightness;
+                window.__logoDebugData.logo = cached.logo === LOGO_DARK ? 'logo_dark' : 'logo_white';
+            }
+
+            // 缓存有效（10 分钟内）→ 直接结束，不走网络
+            if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+                window.__logoDebugData.status = 'cached';
+                window.__logoDebugData.cached = true;
+                window.__logoDebugData.wallpaperUrl = WALLPAPER_API;
+                window.__logoDebugData.errorMsg = '';
+                if (typeof refreshDebugPanel === 'function') refreshDebugPanel();
+                return;
+            }
+
+            // 缓存过期或无缓存 → 后台异步采样
+            window.__logoDebugData.wallpaperUrl = WALLPAPER_API;
+            window.__logoDebugData.cached = false;
+
+            // CSS 直接加载壁纸（file:// 下正常工作，不受 CORS 限制）
+            // JS 通过 weserv 代理 + 缓存破坏参数做 Canvas 采样
+            var cacheBust = '&t=' + Date.now();
+            var proxyUrl = 'https://images.weserv.nl/?url=' + encodeURIComponent(WALLPAPER_API) + cacheBust;
+
+            window.__logoDebugData.proxy = true;
+            var img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = function() {
+                processImage(img);
+            };
+            img.onerror = function() {
+                window.__logoDebugData.status = 'error_fetch';
+                window.__logoDebugData.errorMsg = 'weserv 代理加载壁纸失败';
+            };
+            img.src = proxyUrl;
+        }
+
+        // 延迟到 DOM 就绪后启动检测，避免阻塞页面加载
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                requestAnimationFrame(function() {
+                    requestAnimationFrame(detectAndSwitch);
+                });
+            });
+        } else {
+            requestAnimationFrame(function() {
+                requestAnimationFrame(detectAndSwitch);
+            });
+        }
+        window.__logoDetectAndSwitch = detectAndSwitch;
+    })();
+    </script>
+
+    <!-- Logo 调试：Ctrl+Click Logo → 白色虚线描边 + 框内标签 -->
+    <script>
+    (function() {
+        var outline = document.getElementById('logo-sample-outline');
+        var label   = document.getElementById('logo-sample-label');
+        var statusIcon = document.getElementById('logo-sample-status-icon');
+        var refreshBtn = document.getElementById('logo-sample-refresh-btn');
+        if (!outline || !label) return;
+
+        var active = false;
+
+        /* 每次打开时实时计算采样区域（不依赖 debug data 是否已有坐标） */
+        function calcSampleRect() {
+            var logoEl = document.getElementById('s_lg_img_a');
+            if (!logoEl) return null;
+            var rect = logoEl.getBoundingClientRect();
+            return {
+                x: Math.round(rect.left + rect.width / 2 - rect.width * 1.4 / 2),
+                y: Math.round(rect.top + rect.height / 2 - rect.height * 1.4 / 2),
+                w: Math.round(rect.width * 1.4),
+                h: Math.round(rect.height * 1.4)
+            };
+        }
+
+        /* 判断点击元素是否在 Logo 图片区域内（精确到 img，排除 #lg 容器的空白） */
+        function isClickOnLogo(target) {
+            var imgA = document.getElementById('s_lg_img_a');
+            var imgB = document.getElementById('s_lg_img_b');
+            return (imgA && (imgA === target || imgA.contains(target))) ||
+                   (imgB && (imgB === target || imgB.contains(target)));
+        }
+
+        function toggleDebug(e) {
+            if (!e.ctrlKey) return;
+            // 刷新按钮的点击由自身处理，不触发 toggle
+            if (refreshBtn && refreshBtn.contains(e.target)) return;
+            if (!isClickOnLogo(e.target)) return;
+            e.preventDefault();
+            active = !active;
+            if (active) {
+                outline.classList.add('debug-active');
+                var r = calcSampleRect();
+                if (r) {
+                    outline.style.left   = r.x + 'px';
+                    outline.style.top    = r.y + 'px';
+                    outline.style.width  = r.w + 'px';
+                    outline.style.height = r.h + 'px';
+                }
+                updateLabel();
+            } else {
+                outline.classList.remove('debug-active');
+            }
+        }
+
+        document.addEventListener('click', toggleDebug, true);
+
+        /* 刷新按钮：清除缓存后重新检测 */
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                // 清除缓存，强制重新采样
+                try { localStorage.removeItem(window.__logoCacheKey || 'logo_adapt_cache'); } catch(e) {}
+                // 重置 debug 数据为检测中状态
+                if (window.__logoDebugData) {
+                    window.__logoDebugData.status = 'pending';
+                    window.__logoDebugData.cached = false;
+                }
+                updateStatusIcon('pending');
+                label.textContent = '检测中 | — | —';
+                // 触发重新检测
+                if (typeof window.__logoDetectAndSwitch === 'function') {
+                    window.__logoDetectAndSwitch();
+                }
+            });
+        }
+
+        function updateStatusIcon(state) {
+            if (!statusIcon) return;
+            statusIcon.className = '';
+            if (state === 'success') {
+                statusIcon.textContent = '\u2713';   // ✓
+                statusIcon.className = 'status-success';
+            } else if (state === 'error') {
+                statusIcon.textContent = '\u2717';   // ✗
+                statusIcon.className = 'status-error';
+            } else {
+                statusIcon.textContent = '\u23F3';   // ⏳
+                statusIcon.className = 'status-pending';
+            }
+        }
+
+        function updateLabel() {
+            var d = window.__logoDebugData;
+            if (!d) return;
+
+            var status, colorVal, verdict;
+
+            if (d.status === 'success' || d.status === 'cached') {
+                status = '成功';
+                colorVal = (typeof d.brightness === 'number')
+                    ? d.brightness.toFixed(1) : '—';
+                verdict = d.logo === 'logo_dark' ? 'Dark' : 'White';
+                updateStatusIcon('success');
+            } else if (d.status === 'error_fetch' || d.status === 'error_canvas' || d.status === 'error_unknown') {
+                status = '失败';
+                colorVal = d.errorMsg || '—';
+                verdict = '默认黑色';
+                updateStatusIcon('error');
+            } else {
+                status = '检测中';
+                colorVal = '—';
+                verdict = '—';
+                updateStatusIcon('pending');
+            }
+
+            label.textContent = status + ' | ' + colorVal + ' | ' + verdict;
+        }
+        window.refreshDebugPanel = updateLabel;
     })();
     </script>
     <script>
@@ -597,7 +809,7 @@
                     return false;
                 }
 
-                // Google：iframe 沙盒 Form POST（Referer=about:blank，绕过 403）
+                // Google：「移动法」Form POST 到 lens.google.com
                 var form = document.createElement('form');
                 form.method = 'POST';
                 form.enctype = 'multipart/form-data';
@@ -610,31 +822,17 @@
 
                 var parentEl = fileInput.parentNode;
                 var nextEl = fileInput.nextSibling;
-
-                // 创建隐藏 iframe（about:blank），作为沙盒提交环境
-                var iframe = document.createElement('iframe');
-                iframe.name = 'sandbox_lens';
-                iframe.style.display = 'none';
-                iframe.setAttribute('sandbox', 'allow-form-reorientation allow-forms allow-scripts allow-popups allow-popups-to-escape-sandbox allow-same-origin');
-                document.body.appendChild(iframe);
-
-                var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
                 form.appendChild(fileInput);
-                iframeDoc.body.appendChild(form);
+                document.body.appendChild(form);
                 form.submit();
 
-                // 恢复 fileInput 到原位置
                 if (nextEl) {
                     parentEl.insertBefore(fileInput, nextEl);
                 } else {
                     parentEl.appendChild(fileInput);
                 }
                 fileInput.name = origName;
-
-                // 延迟清理 iframe（等浏览器完成提交）
-                setTimeout(function() {
-                    document.body.removeChild(iframe);
-                }, 2000);
+                document.body.removeChild(form);
 
                 return false;
             }
