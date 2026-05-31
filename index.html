@@ -347,6 +347,10 @@
                     if (data && data.current && data.location) {
                         var rawName = data.location.name;
                         var city = toChineseCity(rawName);
+                        /* name 未命中 → 回退 region（省/市名）；仍未命中则保留原文 */
+                        if (city === rawName && data.location.region) {
+                            city = toChineseCity(data.location.region);
+                        }
                         var code = data.current.condition.code;
                         var temp = data.current.temp_c;
                         updateWeather(city, code, temp);
@@ -371,7 +375,7 @@
         var LOGO_DARK   = 'index_files/images/logo_dark.png';
         var LOGO_WHITE  = 'index_files/images/logo_white.png';
         var SAMPLE_SCALE = 1.4;
-        var BRIGHT_THRESHOLD = 100;
+        var BRIGHT_THRESHOLD = 128;
         var FOOT_COLOR_DARK  = 'rgba(0, 0, 0, 0.8)';
         var FOOT_COLOR_WHITE = 'rgba(255, 255, 255, 0.8)';
         var CACHE_KEY = 'logo_adapt_cache';
@@ -888,12 +892,8 @@
     <!-- 歌单数据内联（绕过 file:// 下的 fetch CORS 限制） -->
     <script src="https://searching-for.pages.dev/index_files/music/_bgm_data.js"></script>
 
-    <!-- 隐藏的网易云外链播放器 -->
-    <iframe id="bgm-player-frame"
-        style="position:fixed;top:-10px;left:-10px;width:1px;height:1px;opacity:0;pointer-events:none;border:none;"
-        allow="autoplay"
-        sandbox="allow-scripts allow-same-origin">
-    </iframe>
+    <!-- 隐藏的 HTML5 音频播放器（本地 MP3） -->
+    <audio id="bgm-player" preload="auto" style="display:none;"></audio>
 
     <!-- BGM 播放列表浮层（position:fixed，脱离文档流，不影响页面布局） -->
     <div class="bgm-playlist-panel" id="bgm-playlist-panel" style="display:none;">
@@ -908,49 +908,81 @@
         var shuffleMode = true;
         var loopMode = 'all'; // all | one | off
         var playing = false;
-        var nextTimeout = null;
-        var iframe = null;
+        var audio = null;
+        var errorCount = 0;        // 防止无限死循环
+        var MAX_CONSEC_ERR = 3;    // 连续错误上限
+        var MP3_BASE = 'https://searching-for.pages.dev/index_files/music/mp3/';
 
-        iframe = document.getElementById('bgm-player-frame');
+        audio = document.getElementById('bgm-player');
         if (playlist.length > 0) {
             console.log('[BGM] 歌单已就绪: ' + playlist.length + ' 首');
         } else {
             console.warn('[BGM] 歌单为空！请先运行 python update_playlist.py 生成 _bgm_data.js');
         }
 
-        // 用 program 对象加载外链播放器，onload 后启动自动切歌计时
-        function loadIframe(program) {
-            iframe.onload = function() {
-                if (!playing || !iframe.src) return;
-                clearTimeout(nextTimeout);
-                nextTimeout = setTimeout(function() {
-                    if (!playing) return;
-                    if (loopMode === 'one') {
-                        playIndex(currentIndex);
-                    } else {
-                        nextSong();
-                    }
-                }, (program.duration || 240000) + 2000);
-            };
-            iframe.src = 'https://music.163.com/outchain/player?type=3&id=' + program.programId + '&auto=1&height=1';
+        // 使用本地 MP3 + HTML5 Audio，ended 事件精确切歌
+        audio.addEventListener('ended', function() {
+            if (!playing) return;
+            if (loopMode === 'one') {
+                audio.currentTime = 0;
+                audio.play();
+                console.log('[BGM] 🔂 单曲循环: ' + playlist[currentIndex].name);
+            } else {
+                nextSong();
+            }
+            errorCount = 0;
+        });
+
+        audio.addEventListener('error', function() {
+            errorCount++;
+            var p = playlist[currentIndex];
+            console.warn('[BGM] ⚠ 加载失败(' + errorCount + '/' + MAX_CONSEC_ERR + '): ' + (p ? p.name : '未知'));
+            if (errorCount >= MAX_CONSEC_ERR) {
+                console.error('[BGM] ⛔ 连续失败 ' + MAX_CONSEC_ERR + ' 次，停止播放');
+                audio.pause();
+                audio.src = '';
+                playing = false;
+                currentIndex = -1;
+                errorCount = 0;
+                refreshBgmUI();
+                var footEl = document.getElementById('foot-text');
+                if (footEl) footEl.textContent = ' - All good things to those who wait. - ';
+                var spinIcon = document.getElementById('bgm-spin-icon');
+                if (spinIcon) spinIcon.classList.remove('playing');
+                return;
+            }
+            if (playing) nextSong();
+        });
+
+        // 加载本地 MP3 并播放
+        function loadAndPlay(program) {
+            audio.pause();
+            audio.src = MP3_BASE + encodeURIComponent(program.filename) + '.mp3';
+            audio.load();
+            audio.play().then(function() {
+                playing = true;
+                refreshBgmUI();
+            }).catch(function(e) {
+                console.warn('[BGM] 播放失败（需用户交互）:', e.message);
+            });
         }
 
         function playIndex(idx) {
             if (idx < 0 || idx >= playlist.length) return;
-            clearTimeout(nextTimeout);
+            errorCount = 0;
             currentIndex = idx;
             playing = true;
             refreshBgmUI();
             updatePlaylistHighlight(idx);
             var p = playlist[idx];
-            loadIframe(p);
+            loadAndPlay(p);
             // 底部文字显示歌名
             var footEl = document.getElementById('foot-text');
             if (footEl) footEl.textContent = ' - ' + p.name + ' - ';
             // 网易云图标开始旋转
             var spinIcon = document.getElementById('bgm-spin-icon');
             if (spinIcon) spinIcon.classList.add('playing');
-            console.log('[BGM] ▶ ' + p.name + ' - ' + p.artist + ' (' + (idx+1) + '/' + playlist.length + ')');
+            console.log('[BGM] ▶ ' + p.name + ' (' + (idx+1) + '/' + playlist.length + ')');
         }
 
         function prevSong() {
@@ -977,7 +1009,8 @@
                         idx = 0;
                     } else {
                         // off: 停止播放
-                        clearTimeout(nextTimeout);
+                        audio.pause();
+                        audio.src = '';
                         playing = false;
                         refreshBgmUI();
                         var footEl = document.getElementById('foot-text');
@@ -999,10 +1032,8 @@
                 playIndex(Math.floor(Math.random() * playlist.length));
                 document.getElementById('bgm-controls').style.display = 'flex';
             } else if (playing) {
-                // 暂停：清空 iframe 停止播放（先清除 onload 防止触发新计时器）
-                clearTimeout(nextTimeout);
-                iframe.onload = null;
-                iframe.src = '';
+                // 暂停：保留进度，不清空 src
+                audio.pause();
                 playing = false;
                 refreshBgmUI();
                 // 底部文字恢复原句
@@ -1013,8 +1044,23 @@
                 if (spinIcon) spinIcon.classList.remove('playing');
                 console.log('[BGM] ⏸ 已暂停');
             } else {
-                // 继续播放：重新加载当前歌曲（从头开始）
-                playIndex(currentIndex);
+                // 继续播放：从暂停位置恢复（保留进度）
+                var p = playlist[currentIndex];
+                playing = true;
+                audio.play().then(function() {
+                    refreshBgmUI();
+                }).catch(function(e) {
+                    playing = false;
+                    refreshBgmUI();
+                    console.warn('[BGM] 恢复播放失败:', e.message);
+                });
+                // 底部文字恢复歌名
+                var footEl = document.getElementById('foot-text');
+                if (footEl) footEl.textContent = ' - ' + p.name + ' - ';
+                // 网易云图标开始旋转
+                var spinIcon = document.getElementById('bgm-spin-icon');
+                if (spinIcon) spinIcon.classList.add('playing');
+                console.log('[BGM] ▶ 继续播放: ' + p.name);
             }
         }
 

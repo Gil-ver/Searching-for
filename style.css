@@ -489,11 +489,7 @@ img {
 }
 
 .bgm-btn:hover {
-    text-shadow:
-        -2px -2px 0 #fff,
-         2px -2px 0 #fff,
-        -2px  2px 0 #fff,
-         2px  2px 0 #fff;
+    filter: hue-rotate(160deg) saturate(5);
 }
 .bgm-btn:disabled {
     cursor: not-allowed;
