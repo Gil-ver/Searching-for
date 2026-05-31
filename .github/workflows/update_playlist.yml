@@ -31,7 +31,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add index_files/music/playlist.json index_files/music/_bgm_data.js
+          git add index_files/music/playlist.json index_files/music/_bgm_data.js index_files/music/mp3/
           if git diff --cached --quiet; then
             echo "No changes, skipping commit."
           else
