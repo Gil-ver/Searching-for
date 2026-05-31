@@ -456,6 +456,7 @@ img {
     height: 46px;
     display: flex;
     align-items: center;
+    justify-content: space-between;
 }
 
 .site-card-title {
@@ -464,6 +465,118 @@ img {
     font-weight: 600;
     padding-top: 5px;
 }
+
+/* BGM 播放控制栏 */
+.bgm-controls {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    margin-left: auto;
+    margin-top: 5px;
+}
+
+.bgm-btn {
+    background: none;
+    border: 1px solid transparent;
+    font-size: 21px;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 3px;
+    color: #444;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bgm-btn:hover {
+    text-shadow:
+        -2px -2px 0 #fff,
+         2px -2px 0 #fff,
+        -2px  2px 0 #fff,
+         2px  2px 0 #fff;
+}
+.bgm-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+/* BGM 播放列表面板 — 毛玻璃浮层，无描边，固定宽度 */
+.bgm-playlist-panel {
+    display: none;
+    position: fixed;
+    width: 270px;
+    height: 260px;
+    overflow: hidden;
+    z-index: 9999;
+    background: rgba(255, 255, 255, 0.60);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-radius: 18px;
+}
+
+/* 内层滚动容器 — 隐藏滚动条滑块 */
+.bgm-playlist-inner {
+    height: 100%;
+    overflow-y: auto;
+    scrollbar-width: none;           /* Firefox */
+    -ms-overflow-style: none;        /* IE/Edge */
+}
+.bgm-playlist-inner::-webkit-scrollbar {
+    display: none;                   /* Chrome/Safari */
+}
+
+/* 播放列表项 — 固定宽度 + 溢出隐藏，hover 时 marquee 滚动 */
+.bgm-playlist-item {
+    display: block;
+    text-align: center;
+    padding: 5px 20px;
+    font-size: 13px;
+    color: #444;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 0;
+    line-height: 1.45;
+    width: 100%;
+}
+
+/* 歌名内联 span — 用于 marquee 动画 */
+.bgm-playlist-item > span {
+    display: inline-block;
+    white-space: nowrap;
+}
+
+/* 仅溢出项在 hover 时启动 marquee 滚动 */
+.bgm-playlist-item:hover > span.marquee-overflow {
+    animation: bgmMarquee 4s linear infinite;
+}
+
+.bgm-playlist-item:hover > span {
+    text-decoration: underline;
+}
+
+.bgm-playlist-item.current {
+    color: #315efb;
+    font-weight: 600;
+}
+
+.bgm-playlist-item.current:hover > span {
+    text-decoration: underline;
+}
+
+/* 歌名 marquee：从右到左循环滚动（溢出时触发） */
+@keyframes bgmMarquee {
+    0%   { transform: translateX(0); }
+    30%  { transform: translateX(0); }
+    100% { transform: translateX(calc(-100% + 230px)); }
+}
+
+/* 隔行变色 — 双数行叠加3%黑，模拟Excel条纹 */
+.bgm-playlist-item:nth-child(even) {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+/* hover 和 current 在隔行之上叠加，不受条纹影响（靠权重自动覆盖） */
 
 /* 站点网格容器 - Grid锁定7列2行 */
 .site-pills {
@@ -509,6 +622,21 @@ img {
     flex-shrink: 0;
     object-fit: contain;
     margin: 0 auto 8px;
+}
+
+/* 网易云音乐图标旋转动画 */
+.bgm-spin-icon {
+    animation: bgmSpin 8s linear infinite;
+    animation-play-state: paused;
+}
+
+.bgm-spin-icon.playing {
+    animation-play-state: running;
+}
+
+@keyframes bgmSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
 }
 
 /* 站点名称 */

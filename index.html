@@ -118,6 +118,13 @@
                 <div class="site-card">
                     <div class="site-card-header">
                         <span class="site-card-title">我的导航</span>
+                        <div class="bgm-controls" id="bgm-controls" style="display:none;">
+                            <button class="bgm-btn" id="bgm-mode-btn">🔀</button>
+                            <button class="bgm-btn" id="bgm-prev-btn">⏮️</button>
+                            <button class="bgm-btn" id="bgm-play-btn">▶️</button>
+                            <button class="bgm-btn" id="bgm-next-btn">⏭️</button>
+                            <button class="bgm-btn" id="bgm-list-btn">🎶</button>
+                        </div>
                     </div>
                     <div class="site-pills">
                         <a class="site-pill" href="https://www.taobao.com/" target="_blank">
@@ -128,15 +135,15 @@
                             <img class="site-pill-icon" src="index_files/images/list - 2.png" alt="京东">
                             <span class="site-pill-name">京东</span>
                         </a>
-                        <a class="site-pill" href="https://mail.qq.com/" target="_blank" data-bgm-action="prev">
+                        <a class="site-pill" href="https://mail.qq.com/" target="_blank">
                             <img class="site-pill-icon" src="index_files/images/list - 3.png" alt="QQ邮箱">
                             <span class="site-pill-name">QQ邮箱</span>
                         </a>
                         <a class="site-pill" href="https://music.163.com/" target="_blank" data-bgm-action="playpause">
-                            <img class="site-pill-icon" src="index_files/images/list - 4.png" alt="网易云音乐">
+                            <img class="site-pill-icon bgm-spin-icon" id="bgm-spin-icon" src="index_files/images/list - 4.png" alt="网易云音乐">
                             <span class="site-pill-name">网易云音乐</span>
                         </a>
-                        <a class="site-pill" href="https://x.com/" target="_blank" data-bgm-action="next">
+                        <a class="site-pill" href="https://x.com/" target="_blank">
                             <img class="site-pill-icon" src="index_files/images/list - 5.png" alt="X">
                             <span class="site-pill-name">X</span>
                         </a>
@@ -164,15 +171,15 @@
                             <img class="site-pill-icon" src="index_files/images/list - 11.png" alt="Cloudflare">
                             <span class="site-pill-name">Cloudflare</span>
                         </a>
-                        <a class="site-pill" href="https://github.com/" target="_blank">
+                        <a class="site-pill" href="https://github.com/" target="_blank" data-ctrl-href="https://github.com/Gil-ver">
                             <img class="site-pill-icon" src="index_files/images/list - 12.png" alt="GitHub">
                             <span class="site-pill-name">GitHub</span>
                         </a>
-                        <a class="site-pill" href="https://store.steampowered.com/" target="_blank">
+                        <a class="site-pill" href="https://store.steampowered.com/" target="_blank" data-ctrl-href="https://steamcommunity.com/workshop/filedetails/?id=3427485888">
                             <img class="site-pill-icon" src="index_files/images/list - 13.png" alt="Steam">
                             <span class="site-pill-name">Steam</span>
                         </a>
-                        <a class="site-pill" href="https://www.bilibili.com/" target="_blank">
+                        <a class="site-pill" href="https://www.bilibili.com/" target="_blank" data-ctrl-href="https://space.bilibili.com/108908966?spm_id_from=333.1007.0.0">
                             <img class="site-pill-icon" src="index_files/images/list - 14.png" alt="Bilibili">
                             <span class="site-pill-name">Bilibili</span>
                         </a>
@@ -189,7 +196,7 @@
 
         <!-- 底部信息 -->
         <div id="foot">
-            <span> - All good things to those who wait. - </span>
+            <span id="foot-text"> - All good things to those who wait. - </span>
         </div>
 
         <!-- Logo 采样区域描边 -->
@@ -888,12 +895,17 @@
         sandbox="allow-scripts allow-same-origin">
     </iframe>
 
+    <!-- BGM 播放列表浮层（position:fixed，脱离文档流，不影响页面布局） -->
+    <div class="bgm-playlist-panel" id="bgm-playlist-panel" style="display:none;">
+        <div class="bgm-playlist-inner" id="bgm-playlist-inner"></div>
+    </div>
+
     <!-- BGM 播客播放器控制脚本 -->
     <script>
     (function() {
         var playlist = window.__BGM_PLAYLIST__ || [];
         var currentIndex = -1;
-        var shuffleMode = false;
+        var shuffleMode = true;
         var loopMode = 'all'; // all | one | off
         var playing = false;
         var nextTimeout = null;
@@ -906,14 +918,21 @@
             console.warn('[BGM] 歌单为空！请先运行 python update_playlist.py 生成 _bgm_data.js');
         }
 
-        // 根据节目时长计算自动切歌延迟（预留 2 秒缓冲）
-        function getEndDelay(program) {
-            return (program.duration || 240000) + 2000;
-        }
-
-        // 用 programId 加载外链播放器
-        function loadIframe(programId) {
-            iframe.src = 'https://music.163.com/outchain/player?type=3&id=' + programId + '&auto=1&height=1';
+        // 用 program 对象加载外链播放器，onload 后启动自动切歌计时
+        function loadIframe(program) {
+            iframe.onload = function() {
+                if (!playing || !iframe.src) return;
+                clearTimeout(nextTimeout);
+                nextTimeout = setTimeout(function() {
+                    if (!playing) return;
+                    if (loopMode === 'one') {
+                        playIndex(currentIndex);
+                    } else {
+                        nextSong();
+                    }
+                }, (program.duration || 240000) + 2000);
+            };
+            iframe.src = 'https://music.163.com/outchain/player?type=3&id=' + program.programId + '&auto=1&height=1';
         }
 
         function playIndex(idx) {
@@ -921,20 +940,17 @@
             clearTimeout(nextTimeout);
             currentIndex = idx;
             playing = true;
+            refreshBgmUI();
+            updatePlaylistHighlight(idx);
             var p = playlist[idx];
-            loadIframe(p.programId);
+            loadIframe(p);
+            // 底部文字显示歌名
+            var footEl = document.getElementById('foot-text');
+            if (footEl) footEl.textContent = ' - ' + p.name + ' - ';
+            // 网易云图标开始旋转
+            var spinIcon = document.getElementById('bgm-spin-icon');
+            if (spinIcon) spinIcon.classList.add('playing');
             console.log('[BGM] ▶ ' + p.name + ' - ' + p.artist + ' (' + (idx+1) + '/' + playlist.length + ')');
-
-            // 根据歌曲实际时长 + 2s 缓冲自动切歌
-            nextTimeout = setTimeout(function() {
-                if (!playing) return;
-                if (loopMode === 'one') {
-                    // 单曲循环：重播当前
-                    playIndex(currentIndex);
-                } else {
-                    nextSong();
-                }
-            }, getEndDelay(p));
         }
 
         function prevSong() {
@@ -963,6 +979,11 @@
                         // off: 停止播放
                         clearTimeout(nextTimeout);
                         playing = false;
+                        refreshBgmUI();
+                        var footEl = document.getElementById('foot-text');
+                        if (footEl) footEl.textContent = ' - All good things to those who wait. - ';
+                        var spinIcon = document.getElementById('bgm-spin-icon');
+                        if (spinIcon) spinIcon.classList.remove('playing');
                         console.log('[BGM] ⏹ 播放完毕（列表结束）');
                         return;
                     }
@@ -974,13 +995,22 @@
         function togglePlayPause() {
             if (playlist.length === 0) return;
             if (currentIndex === -1) {
-                // 首次播放
-                playIndex(0);
+                // 首次播放：随机选一首 + 显示控制栏
+                playIndex(Math.floor(Math.random() * playlist.length));
+                document.getElementById('bgm-controls').style.display = 'flex';
             } else if (playing) {
-                // 暂停：清空 iframe 停止播放
+                // 暂停：清空 iframe 停止播放（先清除 onload 防止触发新计时器）
                 clearTimeout(nextTimeout);
+                iframe.onload = null;
                 iframe.src = '';
                 playing = false;
+                refreshBgmUI();
+                // 底部文字恢复原句
+                var footEl = document.getElementById('foot-text');
+                if (footEl) footEl.textContent = ' - All good things to those who wait. - ';
+                // 网易云图标暂停旋转
+                var spinIcon = document.getElementById('bgm-spin-icon');
+                if (spinIcon) spinIcon.classList.remove('playing');
                 console.log('[BGM] ⏸ 已暂停');
             } else {
                 // 继续播放：重新加载当前歌曲（从头开始）
@@ -990,6 +1020,8 @@
 
         function toggleShuffle() {
             shuffleMode = !shuffleMode;
+            if (shuffleMode) loopMode = 'all';
+            refreshBgmUI();
             console.log('[BGM] 🔀 随机播放: ' + (shuffleMode ? 'ON' : 'OFF'));
         }
 
@@ -997,32 +1029,193 @@
             if (loopMode === 'all') loopMode = 'one';
             else if (loopMode === 'one') loopMode = 'off';
             else loopMode = 'all';
-            var label = loopMode === 'all' ? '全部循环' : loopMode === 'one' ? '单曲循环' : '关闭循环';
-            console.log('[BGM] 🔁 循环模式: ' + label);
+            if (loopMode !== 'off') shuffleMode = false;
+            refreshBgmUI();
+            console.log('[BGM] 🔁 循环模式: ' + (loopMode === 'all' ? '全部循环' : loopMode === 'one' ? '单曲循环' : '关闭循环'));
         }
 
-        // 绑定导航 pill 的 Ctrl+Click
-        var pills = document.querySelectorAll('.site-pill[data-bgm-action]');
-        pills.forEach(function(pill) {
+        // 刷新 BGM 控制栏图标
+        function refreshBgmUI() {
+            var modeBtn = document.getElementById('bgm-mode-btn');
+            var playBtn = document.getElementById('bgm-play-btn');
+            if (shuffleMode) {
+                modeBtn.textContent = '🔀';
+            } else if (loopMode === 'one') {
+                modeBtn.textContent = '🔂';
+            } else if (loopMode === 'all') {
+                modeBtn.textContent = '🔁';
+            } else {
+                modeBtn.textContent = '🔁';
+            }
+            playBtn.textContent = playing ? '⏸️' : '▶️';
+        }
+
+        function cycleBgmMode() {
+            if (shuffleMode) {
+                shuffleMode = false;
+                loopMode = 'all';
+            } else if (loopMode === 'all') {
+                loopMode = 'one';
+            } else {
+                // 单曲播放 → 随机播放（3 步循环：随机→循环→单曲→随机）
+                shuffleMode = true;
+                loopMode = 'all';
+            }
+            refreshBgmUI();
+            var label = shuffleMode ? '随机播放' : loopMode === 'all' ? '全部循环' : '单曲循环';
+            console.log('[BGM] 模式切换: ' + label);
+        }
+
+        // 渲染播放列表 DOM
+        function renderPlaylist() {
+            var inner = document.getElementById('bgm-playlist-inner');
+            if (!inner) return;
+            inner.innerHTML = '';
+
+            // 按歌名首字母排序（忽略大小写）
+            var sorted = playlist.slice().sort(function(a, b) {
+                var na = a.name.toLowerCase();
+                var nb = b.name.toLowerCase();
+                if (na < nb) return -1;
+                if (na > nb) return 1;
+                return 0;
+            });
+
+            for (var i = 0; i < sorted.length; i++) {
+                var item = document.createElement('div');
+                item.className = 'bgm-playlist-item';
+                var span = document.createElement('span');
+                span.textContent = sorted[i].name;
+                item.appendChild(span);
+                // 用原始 playlist 中的索引，保证点击切歌正确
+                var origIdx = playlist.indexOf(sorted[i]);
+                item.setAttribute('data-bgm-idx', origIdx);
+                item.addEventListener('click', function() {
+                    var idx = parseInt(this.getAttribute('data-bgm-idx'));
+                    if (!isNaN(idx)) playIndex(idx);
+                });
+                inner.appendChild(item);
+            }
+        }
+
+        // 更新播放列表高亮（按 data-bgm-idx 匹配，兼容排序后的 DOM 顺序）
+        function updatePlaylistHighlight(idx) {
+            var items = document.querySelectorAll('.bgm-playlist-item');
+            for (var i = 0; i < items.length; i++) {
+                var itemIdx = parseInt(items[i].getAttribute('data-bgm-idx'));
+                if (itemIdx === idx) {
+                    items[i].classList.add('current');
+                } else {
+                    items[i].classList.remove('current');
+                }
+            }
+        }
+
+        // 滚动播放列表到当前正在播放的项（尽量居中，首尾4首靠边）
+        function scrollPlaylistToCurrent() {
+            if (currentIndex < 0) return;
+            var panel = document.getElementById('bgm-playlist-panel');
+            if (!panel || panel.style.display === 'none') return;
+            var items = document.querySelectorAll('.bgm-playlist-item');
+            var total = items.length;
+            for (var i = 0; i < total; i++) {
+                if (parseInt(items[i].getAttribute('data-bgm-idx')) === currentIndex) {
+                    var block;
+                    if (i < 4) {
+                        block = 'start';
+                    } else if (i >= total - 4) {
+                        block = 'end';
+                    } else {
+                        block = 'center';
+                    }
+                    items[i].scrollIntoView({ block: block, behavior: 'instant' });
+                    return;
+                }
+            }
+        }
+
+        // 检测播放列表项文字是否溢出，溢出则加 marquee 标记
+        function detectPlaylistOverflow() {
+            var items = document.querySelectorAll('.bgm-playlist-item');
+            for (var i = 0; i < items.length; i++) {
+                var span = items[i].querySelector('span');
+                if (!span) continue;
+                // 移除之前的标记
+                span.classList.remove('marquee-overflow');
+                // 面板可见后比较文字宽度和容器宽度
+                if (span.scrollWidth > items[i].clientWidth) {
+                    span.classList.add('marquee-overflow');
+                }
+            }
+        }
+
+        // 定位播放列表到 .site-card 右边缘
+        function positionPlaylistPanel() {
+            var panel = document.getElementById('bgm-playlist-panel');
+            var card = document.querySelector('.site-card');
+            if (!panel || !card) return;
+            var rect = card.getBoundingClientRect();
+            panel.style.left = (rect.right + 8) + 'px';
+            panel.style.top = rect.top + 'px';
+        }
+
+        // 🎶 播放列表按钮：切换面板显隐 + 打开时自动滚到当前项 + 溢出检测
+        document.getElementById('bgm-list-btn').addEventListener('click', function(e) {
+            e.preventDefault();
+            var panel = document.getElementById('bgm-playlist-panel');
+            if (panel.style.display === 'none' || panel.style.display === '') {
+                positionPlaylistPanel();
+                panel.style.display = 'block';
+                setTimeout(function() {
+                    detectPlaylistOverflow();
+                    scrollPlaylistToCurrent();
+                }, 50);
+            } else {
+                panel.style.display = 'none';
+            }
+        });
+
+        // 绑定 BGM 控制栏按钮
+        document.getElementById('bgm-mode-btn').addEventListener('click', function(e) {
+            e.preventDefault();
+            cycleBgmMode();
+        });
+        document.getElementById('bgm-prev-btn').addEventListener('click', function(e) {
+            e.preventDefault();
+            prevSong();
+        });
+        document.getElementById('bgm-play-btn').addEventListener('click', function(e) {
+            e.preventDefault();
+            togglePlayPause();
+        });
+        document.getElementById('bgm-next-btn').addEventListener('click', function(e) {
+            e.preventDefault();
+            nextSong();
+        });
+
+        // 绑定导航 pill 的 Ctrl+Click（网易云音乐 + GitHub/Steam/Bilibili 自定义链接）
+        var ctrlPills = document.querySelectorAll('.site-pill[data-bgm-action], .site-pill[data-ctrl-href]');
+        ctrlPills.forEach(function(pill) {
             var action = pill.getAttribute('data-bgm-action');
+            var ctrlHref = pill.getAttribute('data-ctrl-href');
 
             // mousedown 捕获：阻止 Ctrl+Click 时的默认导航跳转
             pill.addEventListener('mousedown', function(e) {
-                if (e.ctrlKey || e.metaKey) {
+                if (e.ctrlKey) {
                     e.preventDefault();
                     e.stopImmediatePropagation();
                 }
             }, true);
 
-            // click 捕获：执行 BGM 操作
+            // click 捕获：执行 BGM 操作或打开自定义链接
             pill.addEventListener('click', function(e) {
-                if (e.ctrlKey || e.metaKey) {
+                if (e.ctrlKey) {
                     e.preventDefault();
                     e.stopImmediatePropagation();
-                    switch(action) {
-                        case 'prev': prevSong(); break;
-                        case 'playpause': togglePlayPause(); break;
-                        case 'next': nextSong(); break;
+                    if (action === 'playpause') {
+                        togglePlayPause();
+                    } else if (ctrlHref) {
+                        window.open(ctrlHref, '_blank');
                     }
                 }
             }, true);
@@ -1030,7 +1223,7 @@
 
         // 键盘快捷键
         document.addEventListener('keydown', function(e) {
-            if (!(e.ctrlKey || e.metaKey)) return;
+            if (!e.ctrlKey) return;
             switch(e.key.toLowerCase()) {
                 case 's':
                     e.preventDefault();
@@ -1043,8 +1236,11 @@
             }
         });
 
-        // 启动时静默预加载歌单
-        console.log('[BGM] 播客播放器就绪。\n  Ctrl+Click 导航图标:\n    QQ邮箱 = ⏮ 上一首\n    网易云音乐 = ▶⏸ 播放/暂停\n    X = ⏭ 下一首\n  快捷键:\n    Ctrl+S = 🔀 随机\n    Ctrl+L = 🔁 循环 (全部/单曲/关闭)');
+        // 预渲染播放列表 DOM
+        renderPlaylist();
+
+        // 启动提示
+        console.log('[BGM] 播客播放器就绪。\n  Ctrl+Click 网易云音乐图标 = 随机播放 | 右上角控制栏操作切歌/换模式');
     })();
     </script>
 
