@@ -553,7 +553,6 @@ img {
 
 .bgm-playlist-item.current {
     color: #315efb;
-    font-weight: 600;
 }
 
 .bgm-playlist-item.current:hover > span {

@@ -123,7 +123,7 @@
                             <button class="bgm-btn" id="bgm-prev-btn">⏮️</button>
                             <button class="bgm-btn" id="bgm-play-btn">▶️</button>
                             <button class="bgm-btn" id="bgm-next-btn">⏭️</button>
-                            <button class="bgm-btn" id="bgm-list-btn">🎶</button>
+                            <button class="bgm-btn" id="bgm-list-btn">🔠</button>
                         </div>
                     </div>
                     <div class="site-pills">
@@ -995,6 +995,7 @@
                 if (idx < 0) idx = playlist.length - 1;
             }
             playIndex(idx);
+            scrollPlaylistToCurrent();
         }
 
         function nextSong() {
@@ -1023,6 +1024,7 @@
                 }
             }
             playIndex(idx);
+            scrollPlaylistToCurrent();
         }
 
         function togglePlayPause() {
@@ -1157,24 +1159,23 @@
             }
         }
 
-        // 滚动播放列表到当前正在播放的项（尽量居中，首尾4首靠边）
+        // 滚动播放列表到当前正在播放的项（居中；首尾自然靠边）
         function scrollPlaylistToCurrent() {
             if (currentIndex < 0) return;
             var panel = document.getElementById('bgm-playlist-panel');
             if (!panel || panel.style.display === 'none') return;
+            var inner = document.getElementById('bgm-playlist-inner');
             var items = document.querySelectorAll('.bgm-playlist-item');
-            var total = items.length;
-            for (var i = 0; i < total; i++) {
+            for (var i = 0; i < items.length; i++) {
                 if (parseInt(items[i].getAttribute('data-bgm-idx')) === currentIndex) {
-                    var block;
-                    if (i < 4) {
-                        block = 'start';
-                    } else if (i >= total - 4) {
-                        block = 'end';
-                    } else {
-                        block = 'center';
-                    }
-                    items[i].scrollIntoView({ block: block, behavior: 'instant' });
+                    var panelH = panel.clientHeight;
+                    var itemTop = items[i].offsetTop;
+                    var itemH = items[i].offsetHeight;
+                    var target = itemTop - (panelH / 2) + (itemH / 2);
+                    var maxScroll = inner.scrollHeight - inner.clientHeight;
+                    if (target < 0) target = 0;
+                    if (target > maxScroll) target = maxScroll;
+                    inner.scrollTop = target;
                     return;
                 }
             }
