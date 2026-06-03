@@ -105,6 +105,10 @@ img {
     color: #fff;
 }
 
+.intelligence-emoji {
+    filter: brightness(0) invert(1);
+}
+
 /* hover 时桥接文字与下拉框之间的 18px 空隙，防止 hover 丢失 */
 .top-nav-dropdown:hover::after {
     content: '';
@@ -460,7 +464,7 @@ img {
 }
 
 .site-card-title {
-    font-size: 14px;
+    font-size: 16px;
     color: #222;
     font-weight: 600;
     padding-top: 5px;
