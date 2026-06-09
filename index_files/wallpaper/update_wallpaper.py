@@ -43,6 +43,7 @@ CROP_X = 760
 CROP_Y = 225
 CROP_W = 400
 CROP_H = 160
+CROP_FILE = "crop.jpg"
 
 BRIGHTNESS_THRESHOLD = 150   # ≥150 → dark logo, <150 → white logo
 JPEG_QUALITY = 92
@@ -151,6 +152,13 @@ def main():
     crop = img.copy().crop((CROP_X, CROP_Y, CROP_X + CROP_W, CROP_Y + CROP_H))
     brightness, pixel_count = compute_brightness(crop)
     print(f"Crop region ({CROP_X},{CROP_Y},{CROP_W},{CROP_H}): brightness={brightness:.1f} ({pixel_count} px)")
+
+    # Save cropped image to staging/
+    crop_path = os.path.join(STAGING_DIR, CROP_FILE)
+    if crop.mode == "RGBA":
+        crop = crop.convert("RGB")
+    crop.save(crop_path, "JPEG", quality=JPEG_QUALITY)
+    print(f"  OK Saved to staging/{CROP_FILE}")
 
     # 5. Decide logo color
     logo = "dark" if brightness >= BRIGHTNESS_THRESHOLD else "white"
