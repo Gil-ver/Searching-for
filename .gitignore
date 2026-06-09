@@ -5,8 +5,6 @@
 ~*.xlsx
 ~*.pptx
 
-# Wallpaper staging 目录
-index_files/wallpaper/staging/
 
 # 系统文件
 Thumbs.db

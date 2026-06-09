@@ -1,2 +1,1 @@
-# Wallpaper staging directory — temporary, not tracked
-staging/
+# staging/ is now permanent archive, tracked in git

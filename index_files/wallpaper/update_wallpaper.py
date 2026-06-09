@@ -169,26 +169,24 @@ def main():
     write_config(brightness, pixel_count, logo, raw_w, raw_h)
     print(f"  OK Wrote staging/{CONFIG_FILE}")
 
-    # 7. Atomic replacement: staging/ → prod/
-    PROD_OLD = os.path.join(SCRIPT_DIR, "prod_old")
-
-    if os.path.exists(PROD_OLD):
-        shutil.rmtree(PROD_OLD)
-
+    # 7. Sync staging/ → prod/ (staging stays as permanent archive)
+    #    Clear prod/ first, then copy all staging files in
     if os.path.exists(PROD_DIR):
-        os.rename(PROD_DIR, PROD_OLD)
+        for item in os.listdir(PROD_DIR):
+            item_path = os.path.join(PROD_DIR, item)
+            if os.path.isfile(item_path):
+                os.remove(item_path)
+    else:
+        os.makedirs(PROD_DIR)
 
-    os.rename(STAGING_DIR, PROD_DIR)
+    for item in os.listdir(STAGING_DIR):
+        src = os.path.join(STAGING_DIR, item)
+        dst = os.path.join(PROD_DIR, item)
+        if os.path.isfile(src):
+            shutil.copy2(src, dst)
 
-    if os.path.exists(PROD_OLD):
-        try:
-            shutil.rmtree(PROD_OLD)
-        except PermissionError:
-            print(f"  (cleanup note: prod_old/ locked by OS, will be removed next run)")
-
-    print(f"\n[OK] Atomic replacement: staging/ → prod/")
-    print(f"     Wallpaper: {WALLPAPER_FILE}")
-    print(f"     Config:    {CONFIG_FILE}")
+    print(f"\n[OK] staging/ synced → prod/ (staging kept for archive)")
+    print(f"     {WALLPAPER_FILE} | {CROP_FILE} | {CONFIG_FILE}")
 
 
 if __name__ == "__main__":
