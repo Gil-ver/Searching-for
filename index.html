@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="origin-when-cross-origin">
     <meta name="theme-color" content="#ffffff">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪐</text></svg>">
+<link rel="icon" href="index_files/images/S.svg" type="image/svg+xml">
     <title>Searching for⋯</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -94,6 +94,7 @@
                         <span id="s_ipt_wr">
                             <input type="text" name="wd" id="kw" maxlength="255" autocomplete="off" autofocus placeholder="请输入搜索内容">
                         </span>
+                        <div id="search-suggestions" style="display:none;"></div>
                         <div class="search-engine-btns">
                             <a id="search-bing-btn" class="search-engine-btn" href="https://www.bing.com/search?q="
                                onclick="return doSearch('bing', event)">
@@ -113,11 +114,11 @@
 
             </div>
 
-            <!-- Visiting -->
+            <!-- 💫 Visiting -->
             <div id="s-nav-wrapper">
                 <div class="site-card">
                     <div class="site-card-header">
-                        <span class="site-card-title">Visiting</span>
+                        <span class="site-card-title"><span class="title-emoji">💫 </span>Visiting</span>
                         <div class="bgm-controls" id="bgm-controls" style="display:none;">
                             <button class="bgm-btn" id="bgm-mode-btn">🔀</button>
                             <button class="bgm-btn" id="bgm-prev-btn">⏮️</button>
@@ -616,19 +617,20 @@
             };
         }
 
-        /* 判断点击元素是否在 Logo 图片区域内（精确到 img，排除 #lg 容器的空白） */
-        function isClickOnLogo(target) {
+        /* 判断点击坐标是否落在 Logo 图片区域内（img pointer-events:none，用坐标替代 target 判断） */
+        function isClickOnLogo(e) {
             var imgA = document.getElementById('s_lg_img_a');
-            var imgB = document.getElementById('s_lg_img_b');
-            return (imgA && (imgA === target || imgA.contains(target))) ||
-                   (imgB && (imgB === target || imgB.contains(target)));
+            if (!imgA) return false;
+            var rect = imgA.getBoundingClientRect();
+            return e.clientX >= rect.left && e.clientX <= rect.right &&
+                   e.clientY >= rect.top  && e.clientY <= rect.bottom;
         }
 
         function toggleDebug(e) {
             if (!e.ctrlKey) return;
             // 刷新按钮的点击由自身处理，不触发 toggle
             if (refreshBtn && refreshBtn.contains(e.target)) return;
-            if (!isClickOnLogo(e.target)) return;
+            if (!isClickOnLogo(e)) return;
             e.preventDefault();
             active = !active;
             if (active) {
@@ -647,16 +649,6 @@
         }
 
         document.addEventListener('click', toggleDebug, true);
-
-        // 阻止 Logo 右键菜单（不允许保存图片），不影响左键 Ctrl+Click
-        // 直接绑定在 img 元素上最可靠
-        (function() {
-            var imgA = document.getElementById('s_lg_img_a');
-            var imgB = document.getElementById('s_lg_img_b');
-            function blockRightClick(e) { e.preventDefault(); }
-            if (imgA) imgA.addEventListener('contextmenu', blockRightClick);
-            if (imgB) imgB.addEventListener('contextmenu', blockRightClick);
-        })();
 
         /* 刷新按钮：清除缓存后重新检测 */
         if (refreshBtn) {
@@ -886,6 +878,128 @@
                 window.location.href = 'https://www.baidu.com/s?wd=' + encodeURIComponent(q);
             }
         });
+
+        /* ========== 搜索建议（Google Suggest JSONP）========== */
+        var suggestBox    = document.getElementById('search-suggestions');
+        var suggestInput  = document.getElementById('kw');
+        var suggestDebounce = null;
+        var suggestActiveIdx = -1;    // 键盘当前高亮项索引，-1 = 无选中
+        var suggestBlurTimer = null;  // blur 延迟隐藏定时器
+
+        function fetchSuggestions(query) {
+            var script = document.createElement('script');
+            var callbackName = '_sug_' + Date.now();
+            window[callbackName] = function(data) {
+                delete window[callbackName];
+                document.head.removeChild(script);
+                renderSuggestions(data.s || []);
+            };
+            script.src = 'https://sp0.baidu.com/5a1Fazu8AA54nxGko9WTAnF6hhy/su?wd='
+                       + encodeURIComponent(query) + '&cb=' + callbackName;
+            script.onerror = function() {
+                delete window[callbackName];
+                document.head.removeChild(script);
+            };
+            document.head.appendChild(script);
+        }
+
+        var SUGGEST_ICON_SRC = 'index_files/images/magnifier.svg';
+
+        function renderSuggestions(list) {
+            suggestBox.innerHTML = '';
+            if (!list || list.length === 0) { hideSuggestions(); return; }
+            var count = Math.min(list.length, 10);
+            for (var i = 0; i < count; i++) {
+                var item = document.createElement('div');
+                item.className = 'suggest-item';
+                item.setAttribute('data-idx', i);
+
+                var icon = document.createElement('img');
+                icon.className = 'suggest-item-icon';
+                icon.src = SUGGEST_ICON_SRC;
+                icon.alt = '';
+                item.appendChild(icon);
+
+                var textEl = document.createElement('span');
+                textEl.className = 'suggest-item-text';
+                textEl.textContent = list[i];
+                item.appendChild(textEl);
+
+                item.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    suggestInput.value = this.querySelector('.suggest-item-text').textContent;
+                    hideSuggestions();
+                    suggestInput.focus();
+                });
+                suggestBox.appendChild(item);
+            }
+            suggestActiveIdx = -1;
+            suggestBox.style.display = 'block';
+            suggestInput.classList.add('has-suggestions');
+        }
+
+        function hideSuggestions() {
+            suggestBox.style.display = 'none';
+            suggestBox.innerHTML = '';
+            suggestInput.classList.remove('has-suggestions');
+            suggestActiveIdx = -1;
+        }
+
+        function moveSuggestHighlight(direction) {
+            var items = suggestBox.querySelectorAll('.suggest-item');
+            if (items.length === 0) return;
+            for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+            if (direction === 'down') {
+                suggestActiveIdx++;
+                if (suggestActiveIdx >= items.length) suggestActiveIdx = 0;
+            } else {
+                suggestActiveIdx--;
+                if (suggestActiveIdx < 0) suggestActiveIdx = items.length - 1;
+            }
+            items[suggestActiveIdx].classList.add('active');
+            items[suggestActiveIdx].scrollIntoView({ block: 'nearest' });
+        }
+
+        function selectHighlighted() {
+            var items = suggestBox.querySelectorAll('.suggest-item');
+            if (items.length === 0 || suggestActiveIdx < 0) return false;
+            suggestInput.value = items[suggestActiveIdx].querySelector('.suggest-item-text').textContent;
+            hideSuggestions();
+            suggestInput.focus();
+            return true;
+        }
+
+        suggestInput.addEventListener('input', function() {
+            clearTimeout(suggestDebounce);
+            var q = this.value.trim();
+            if (!q) { hideSuggestions(); return; }
+            suggestDebounce = setTimeout(function() { fetchSuggestions(q); }, 300);
+        });
+
+        suggestInput.addEventListener('keydown', function(e) {
+            if (suggestBox.style.display !== 'block') return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); moveSuggestHighlight('down'); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); moveSuggestHighlight('up'); }
+            else if (e.key === 'Enter' && suggestActiveIdx >= 0) { e.preventDefault(); selectHighlighted(); }
+            else if (e.key === 'Escape') { hideSuggestions(); }
+        });
+
+        suggestInput.addEventListener('blur', function() {
+            clearTimeout(suggestBlurTimer);
+            suggestBlurTimer = setTimeout(function() { hideSuggestions(); }, 150);
+        });
+
+        suggestInput.addEventListener('focus', function() {
+            clearTimeout(suggestBlurTimer);
+            var q = this.value.trim();
+            if (q) fetchSuggestions(q);
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!suggestInput.contains(e.target) && !suggestBox.contains(e.target)) {
+                hideSuggestions();
+            }
+        });
     })();
     </script>
 
@@ -912,6 +1026,30 @@
         var errorCount = 0;        // 防止无限死循环
         var MAX_CONSEC_ERR = 3;    // 连续错误上限
         var MP3_BASE = 'https://searching-for.pages.dev/index_files/music/mp3/';
+        var switchingSong = false; // 切歌锁，防止内部 pause 触发 UI 刷新
+        var shuffleQueue = [];      // Fisher-Yates 洗牌后的完整歌单索引队列
+        var shufflePosition = -1;   // 当前在队列中的位置
+
+        // Fisher-Yates 洗牌，生成新的随机队列
+        function initShuffleQueue() {
+            shuffleQueue = [];
+            for (var i = 0; i < playlist.length; i++) shuffleQueue.push(i);
+            for (var i = shuffleQueue.length - 1; i > 0; i--) {
+                var j = Math.floor(Math.random() * (i + 1));
+                var tmp = shuffleQueue[i];
+                shuffleQueue[i] = shuffleQueue[j];
+                shuffleQueue[j] = tmp;
+            }
+            shufflePosition = -1;
+        }
+
+        // 随机模式：从洗牌队列取下一首（环形绕回，永不丢失历史）
+        function nextShuffleIndex() {
+            if (shuffleQueue.length === 0) initShuffleQueue();
+            shufflePosition++;
+            if (shufflePosition >= shuffleQueue.length) shufflePosition = 0;
+            return shuffleQueue[shufflePosition];
+        }
 
         audio = document.getElementById('bgm-player');
         if (playlist.length > 0) {
@@ -954,15 +1092,47 @@
             if (playing) nextSong();
         });
 
+        // 监听原生 play/pause 事件（响应键盘媒体键等外部控制）
+        audio.addEventListener('play', function() {
+            if (switchingSong) return;      // 切歌内部的 pause/play 不触发刷新
+            if (!playing) {
+                playing = true;
+                refreshBgmUI();
+                var footEl = document.getElementById('foot-text');
+                if (footEl && currentIndex >= 0) footEl.textContent = ' - ' + playlist[currentIndex].name + ' - ';
+                var spinIcon = document.getElementById('bgm-spin-icon');
+                if (spinIcon) spinIcon.classList.add('playing');
+                console.log('[BGM] ▶ 外部恢复播放');
+            }
+        });
+
+        audio.addEventListener('pause', function() {
+            if (switchingSong) return;      // 切歌内部的 pause 不触发刷新
+            if (audio.ended) return;        // 自然播放结束，由 ended 事件处理切歌
+            if (playing) {
+                playing = false;
+                refreshBgmUI();
+                var footEl = document.getElementById('foot-text');
+                if (footEl) footEl.textContent = ' - All good things to those who wait. - ';
+                var spinIcon = document.getElementById('bgm-spin-icon');
+                if (spinIcon) spinIcon.classList.remove('playing');
+                console.log('[BGM] ⏸ 外部暂停');
+            }
+        });
+
         // 加载本地 MP3 并播放
         function loadAndPlay(program) {
+            switchingSong = true;
             audio.pause();
             audio.src = MP3_BASE + encodeURIComponent(program.filename) + '.mp3';
             audio.load();
             audio.play().then(function() {
+                switchingSong = false;
                 playing = true;
                 refreshBgmUI();
+                updateMediaSession(program);
             }).catch(function(e) {
+                switchingSong = false;
                 console.warn('[BGM] 播放失败（需用户交互）:', e.message);
             });
         }
@@ -989,7 +1159,13 @@
             if (playlist.length === 0) return;
             var idx;
             if (shuffleMode) {
-                idx = Math.floor(Math.random() * playlist.length);
+                // 洗牌队列回溯：上一首即位置前移
+                if (shuffleQueue.length === 0) initShuffleQueue();
+                shufflePosition--;
+                if (shufflePosition < 0) {
+                    shufflePosition = shuffleQueue.length - 1;
+                }
+                idx = shuffleQueue[shufflePosition];
             } else {
                 idx = currentIndex - 1;
                 if (idx < 0) idx = playlist.length - 1;
@@ -1002,7 +1178,7 @@
             if (playlist.length === 0) return;
             var idx;
             if (shuffleMode) {
-                idx = Math.floor(Math.random() * playlist.length);
+                idx = nextShuffleIndex();
             } else {
                 idx = currentIndex + 1;
                 if (idx >= playlist.length) {
@@ -1031,7 +1207,7 @@
             if (playlist.length === 0) return;
             if (currentIndex === -1) {
                 // 首次播放：随机选一首 + 显示控制栏
-                playIndex(Math.floor(Math.random() * playlist.length));
+                playIndex(nextShuffleIndex());
                 document.getElementById('bgm-controls').style.display = 'flex';
             } else if (playing) {
                 // 暂停：保留进度，不清空 src
@@ -1074,7 +1250,7 @@
             if (!isVisible) {
                 // 控制栏隐藏 → 显示 + 开始/恢复播放
                 if (currentIndex === -1) {
-                    playIndex(Math.floor(Math.random() * playlist.length));
+                    playIndex(nextShuffleIndex());
                 } else if (!playing) {
                     var p = playlist[currentIndex];
                     playing = true;
@@ -1111,6 +1287,7 @@
         function toggleShuffle() {
             shuffleMode = !shuffleMode;
             if (shuffleMode) loopMode = 'all';
+            initShuffleQueue(); // 切换模式时重建洗牌队列
             refreshBgmUI();
             console.log('[BGM] 🔀 随机播放: ' + (shuffleMode ? 'ON' : 'OFF'));
         }
@@ -1120,6 +1297,7 @@
             else if (loopMode === 'one') loopMode = 'off';
             else loopMode = 'all';
             if (loopMode !== 'off') shuffleMode = false;
+            initShuffleQueue(); // 切换模式时重建洗牌队列
             refreshBgmUI();
             console.log('[BGM] 🔁 循环模式: ' + (loopMode === 'all' ? '全部循环' : loopMode === 'one' ? '单曲循环' : '关闭循环'));
         }
@@ -1248,6 +1426,14 @@
             panel.style.top = rect.top + 'px';
         }
 
+        // 窗口大小变化时，如果面板可见则重新定位
+        window.addEventListener('resize', function() {
+            var panel = document.getElementById('bgm-playlist-panel');
+            if (panel && panel.style.display === 'block') {
+                positionPlaylistPanel();
+            }
+        });
+
         // 🎶 播放列表按钮：切换面板显隐 + 打开时自动滚到当前项 + 溢出检测
         document.getElementById('bgm-list-btn').addEventListener('click', function(e) {
             e.preventDefault();
@@ -1324,6 +1510,79 @@
                     break;
             }
         });
+
+        // 键盘媒体键直接捕获（仅用于首次激活：控制栏隐藏 → 弹出控制栏）
+        // 控制栏可见后，全部交给 MediaSession API 处理，避免双重触发
+        document.addEventListener('keydown', function(e) {
+            if (playlist.length === 0) return;
+            if (e.key === 'MediaPlayPause') {
+                var ctrl = document.getElementById('bgm-controls');
+                if (!ctrl || ctrl.style.display === 'flex') return; // 已可见，交给 MediaSession
+                e.preventDefault();
+                toggleBgmControls();
+            }
+        });
+
+        // 初始化 Media Session API（响应键盘媒体键：上一首/下一首/暂停/播放）
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.setActionHandler('play', function() {
+                if (currentIndex >= 0 && !playing) {
+                    // 控制栏隐藏时先激活音乐功能（等同 Ctrl+Click 网易云图标）
+                    var ctrl = document.getElementById('bgm-controls');
+                    if (ctrl.style.display !== 'flex') ctrl.style.display = 'flex';
+                    var p = playlist[currentIndex];
+                    playing = true;
+                    audio.play().then(function() {
+                        refreshBgmUI();
+                        var footEl = document.getElementById('foot-text');
+                        if (footEl) footEl.textContent = ' - ' + p.name + ' - ';
+                        var spinIcon = document.getElementById('bgm-spin-icon');
+                        if (spinIcon) spinIcon.classList.add('playing');
+                    }).catch(function(e) {
+                        playing = false;
+                        refreshBgmUI();
+                    });
+                } else if (currentIndex === -1) {
+                    playIndex(nextShuffleIndex());
+                    document.getElementById('bgm-controls').style.display = 'flex';
+                }
+            });
+
+            navigator.mediaSession.setActionHandler('pause', function() {
+                if (playing) {
+                    audio.pause();
+                    // play/pause 事件监听器会自动同步 UI
+                }
+            });
+
+            navigator.mediaSession.setActionHandler('previoustrack', function() {
+                if (playlist.length > 0 && currentIndex >= 0) prevSong();
+            });
+
+            navigator.mediaSession.setActionHandler('nexttrack', function() {
+                if (playlist.length > 0 && currentIndex >= 0) nextSong();
+            });
+
+            // 占位 metadata：让浏览器识别本页面为媒体播放器，媒体键始终路由到此页面
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: 'Searching For...',
+                artist: 'Ctrl+Click 网易云图标开始播放',
+                artwork: [
+                    { src: 'index_files/images/list - 1.png', sizes: '96x96', type: 'image/png' }
+                ]
+            });
+        }
+
+        function updateMediaSession(program) {
+            if (!('mediaSession' in navigator)) return;
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: program.name,
+                artist: '网易云音乐 · Searching For',
+                artwork: [
+                    { src: 'index_files/images/list - 1.png', sizes: '96x96', type: 'image/png' }
+                ]
+            });
+        }
 
         // 预渲染播放列表 DOM
         renderPlaylist();

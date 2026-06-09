@@ -40,11 +40,6 @@ img {
     pointer-events: none;
 }
 
-/* Logo 允许点击（用于 Ctrl+Click 调试） */
-.logo-layer {
-    pointer-events: auto;
-}
-
 /* ---------- 皮肤背景层 ---------- */
 #skin-bg {
     position: fixed;
@@ -437,6 +432,74 @@ img {
 }
 
 
+/* 搜索建议下拉 — 搜索框向下延伸，共享边框，最多7条 */
+#search-suggestions {
+    display: none;
+    position: relative;
+    width: 800px;
+    margin: 0 auto;
+    background: #fff;
+    border: 2px solid #4e6ef2;
+    border-top: none;
+    border-radius: 0 0 24px 24px;
+    box-sizing: border-box;
+    overflow: hidden;
+    font-family: Arial, "Microsoft YaHei", sans-serif;
+    z-index: 3;
+}
+
+/* 分割线：0.96倍宽度居中，30% 黑 */
+#search-suggestions::before {
+    content: '';
+    display: block;
+    width: 96%;
+    margin: 0 auto;
+    height: 1px;
+    background: #CCCCCC;
+}
+
+/* 输入框有建议时：底部圆角变直角（分割线由 #search-suggestions::before 绘制） */
+#kw.has-suggestions {
+    border-radius: 24px 24px 0 0;
+    border-bottom: none;
+}
+
+/* 单条建议 — flex 布局，图标 + 文字左对齐，与输入框 SVG 图标对齐 */
+.suggest-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 7px 18px 7px 20px;
+    font-size: 15px;
+    color: #222;
+    cursor: pointer;
+    user-select: none;
+    line-height: 1.5;
+    box-sizing: border-box;
+}
+
+.suggest-item-icon {
+    width: 18px;
+    height: 18px;
+    margin-right: 25px;
+    flex-shrink: 0;
+    opacity: 0.46;
+    filter: brightness(0);
+}
+
+.suggest-item-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* hover 和键盘选中共用 .active 样式 */
+.suggest-item:hover,
+.suggest-item.active {
+    background: #f0f2ff;
+    color: #1a1a1a;
+}
+
 /* ---------- 我的导航 ---------- */
 #s-nav-wrapper {
     position: relative;
@@ -465,7 +528,8 @@ img {
 
 .site-card-title {
     font-size: 16px;
-    color: #222;
+    color: transparent;
+    text-shadow: 0 0 0 #222;
     font-weight: 600;
     padding-top: 5px;
 }
@@ -728,6 +792,16 @@ img {
     }
     .s_form_wrapper {
         width: 100%;
+    }
+    #search-suggestions {
+        width: 100%;
+    }
+    .suggest-item {
+        padding-left: 14px;
+        padding-right: 8px;
+    }
+    .suggest-item-icon {
+        display: none;
     }
     #kw {
         padding: 0 110px 0 14px;
