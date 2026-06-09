@@ -1,0 +1,13 @@
+# OneDrive 临时文件
+~$*
+*.tmp
+~*.docx
+~*.xlsx
+~*.pptx
+
+# Wallpaper staging 目录
+index_files/wallpaper/staging/
+
+# 系统文件
+Thumbs.db
+Desktop.ini

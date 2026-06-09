@@ -1,0 +1,991 @@
+/* ========================================
+                Searching for⋯
+   ======================================== */
+
+/* ---------- 全局重置 ---------- */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
+    width: 100%;
+    min-height: 100vh;
+    text-align: center;
+    background: #fff;
+    font-family: Arial, "Microsoft YaHei", "微软雅黑", sans-serif;
+    font-size: 12px;
+    position: relative;
+    z-index: 0;
+}
+
+a {
+    text-decoration: none;
+    color: #222;
+}
+a:hover {
+    color: #315efb;
+}
+
+img {
+    -webkit-user-drag: none;
+    user-select: none;
+    pointer-events: none;
+}
+
+/* ---------- 皮肤背景层 ---------- */
+#skin-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background-color: #000;
+    background-image: url('https://api.dujin.org/bing/1920.php');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* ---------- 顶部导航栏 ---------- */
+.top-nav {
+    position: fixed;
+    left: 0;
+    top: -6px;
+    z-index: 100;
+    height: 60px;
+    padding-left: 24px;
+    display: flex;
+    align-items: center;
+}
+
+.top-nav a {
+    display: inline-block;
+    margin-right: 24px;
+    font-size: 14px;
+    color: #ccc;
+    font-weight: 400;
+    white-space: nowrap;
+}
+.top-nav a:hover {
+    color: #fff;
+}
+
+/* 顶部导航下拉菜单 */
+.top-nav-dropdown {
+    display: inline-block;
+    position: relative;
+    margin-right: 24px;
+}
+
+.top-nav-trigger {
+    display: inline-block;
+    font-size: 14px;
+    color: #ccc;
+    font-weight: 400;
+    white-space: nowrap;
+    cursor: default;
+    user-select: none;
+}
+
+.top-nav-dropdown:hover .top-nav-trigger {
+    color: #fff;
+}
+
+.intelligence-emoji {
+    filter: brightness(0) invert(1);
+}
+
+/* hover 时桥接文字与下拉框之间的 18px 空隙，防止 hover 丢失 */
+.top-nav-dropdown:hover::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    height: 18px;
+}
+
+.top-nav-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 18px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 8px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+    z-index: 200;
+}
+
+.top-nav-dropdown:hover .top-nav-dropdown-menu {
+    display: block;
+}
+
+.top-nav-dropdown-menu a {
+    display: block !important;
+    margin-right: 0 !important;
+    padding: 4px 14px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.85) !important;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+.top-nav-dropdown-menu a:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff !important;
+}
+
+/* 右上角区域 */
+.top-nav-right {
+    position: fixed;
+    right: 0;
+    top: -6px;
+    z-index: 100;
+    height: 60px;
+    padding-right: 24px;
+    display: flex;
+    align-items: center;
+}
+
+/* 天气模块 */
+.weather-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: #ccc;
+    text-decoration: none;
+    white-space: nowrap;
+    height: 23px;
+    line-height: 23px;
+    cursor: pointer;
+}
+.weather-wrapper:hover {
+    color: #fff;
+}
+
+.weather-location {
+    font-weight: 400;
+}
+
+.weather-emoji {
+    font-size: 15px;
+    line-height: 1;
+}
+
+.weather-temp {
+    font-weight: 400;
+}
+
+/* ---------- 主包裹 ---------- */
+#wrapper {
+    position: relative;
+    z-index: 0;
+    min-width: 1000px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 顶部半透明黑色底色条：横穿全页，高48px */
+#wrapper::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 48px;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: -1;
+    pointer-events: none;
+}
+
+/* ---------- 头部容器 ---------- */
+#head {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding-top: 60px;  /* 留给顶部导航栏 */
+    margin-top: -100px;  /* 整体上移100px */
+}
+
+/* ---------- 搜索主体包裹 ---------- */
+#head_wrapper {
+    position: relative;
+    width: 100%;
+    text-align: center;
+    padding-bottom: 50px;
+}
+
+/* ---------- Logo 区域 ---------- */
+#lg {
+    height: 24vh;
+    min-height: 185px;
+    max-height: 310px;
+    position: relative;
+    text-align: center;
+    top: -30px;
+}
+
+/* Logo 交叉叠化层 */
+.logo-layer {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    margin-left: -135px;
+    width: 270px;
+    height: 85px;
+    border: 0;
+    display: block;
+    transition: opacity 1.2s ease;
+}
+
+.logo-current {
+    opacity: 1;
+    z-index: 2;
+}
+
+.logo-next {
+    opacity: 0;
+    z-index: 1;
+}
+
+/* ---------- 搜索表单 ---------- */
+#form {
+    position: relative;
+    z-index: 1;
+    margin: 0 auto;
+    padding: 0;
+    width: 800px;
+    top: -10px;
+}
+
+.s_form_wrapper {
+    position: relative;
+    display: block;
+    width: 800px;
+    height: 48px;
+    margin: 0 auto;
+}
+
+/* 搜索框左侧图标 */
+.search-left-icon {
+    display: block;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    object-fit: cover;
+    object-position: center;
+}
+
+/* 上传成功后的关闭按钮（居中，仅在有图片且 hover 时显示） */
+.image-upload-close {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 12px;
+    line-height: 20px;
+    text-align: center;
+    border-radius: 50%;
+    cursor: pointer;
+    pointer-events: auto;
+    z-index: 5;
+}
+
+.search-left-icon-wrapper.has-image:hover .image-upload-close {
+    display: block;
+}
+
+/* 上传中 loading 旋转动画 */
+.image-upload-loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid rgba(0, 0, 0, 0.15);
+    border-top-color: #4e6ef2;
+    border-radius: 50%;
+    animation: icon-spin 0.6s linear infinite;
+    z-index: 3;
+    display: none;
+}
+
+.image-upload-loading.active {
+    display: block;
+}
+
+@keyframes icon-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 输入框包裹 */
+#s_ipt_wr {
+    display: block;
+    width: 100%;
+    height: 48px;
+}
+
+#s_ipt_wr:hover #kw {
+    border-color: #a7aab5;
+}
+
+#kw {
+    width: 100%;
+    height: 48px;
+    padding: 0 144px 0 58px;
+    font-size: 16px;
+    margin: 0;
+    outline: 0;
+    box-shadow: none;
+    border-radius: 24px;
+    border: 2px solid #c4c7ce;
+    background: #fff;
+    color: #222;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    font-family: Arial, "Microsoft YaHei", sans-serif;
+    line-height: 44px;
+}
+
+/* 输入文字时：用底部 padding 把文字向上挤压 2px */
+#kw:not(:placeholder-shown) {
+    padding: 0 144px 4px 58px;
+}
+
+#kw:focus {
+    border-color: #4e6ef2 !important;
+}
+
+#kw::placeholder {
+    font-size: 16px;
+    color: #9195a3;
+}
+
+#kw::-webkit-input-placeholder {
+    font-size: 16px;
+    color: #9195a3;
+}
+
+#kw::-moz-placeholder {
+    font-size: 16px;
+    color: #9195a3;
+}
+
+/* 多引擎搜索按钮组 */
+.search-engine-btns {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 2;
+}
+
+.search-engine-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    flex-shrink: 0;
+}
+
+.search-engine-btn:hover {
+    opacity: 0.8;
+    transform: scale(1.1);
+}
+
+.search-engine-btn img {
+    display: block;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+}
+
+
+/* 搜索建议下拉 — 搜索框向下延伸，共享边框，最多7条 */
+#search-suggestions {
+    display: none;
+    position: relative;
+    width: 800px;
+    margin: 0 auto;
+    background: #fff;
+    border: 2px solid #4e6ef2;
+    border-top: none;
+    border-radius: 0 0 24px 24px;
+    box-sizing: border-box;
+    overflow: hidden;
+    font-family: Arial, "Microsoft YaHei", sans-serif;
+    z-index: 3;
+}
+
+/* 分割线：0.96倍宽度居中，30% 黑 */
+#search-suggestions::before {
+    content: '';
+    display: block;
+    width: 96%;
+    margin: 0 auto;
+    height: 1px;
+    background: #CCCCCC;
+}
+
+/* 输入框有建议时：底部圆角变直角（分割线由 #search-suggestions::before 绘制） */
+#kw.has-suggestions {
+    border-radius: 24px 24px 0 0;
+    border-bottom: none;
+}
+
+/* 单条建议 — flex 布局，图标 + 文字左对齐，与输入框 SVG 图标对齐 */
+.suggest-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 7px 18px 7px 20px;
+    font-size: 15px;
+    color: #222;
+    cursor: pointer;
+    user-select: none;
+    line-height: 1.5;
+    box-sizing: border-box;
+}
+
+.suggest-item-icon {
+    width: 18px;
+    height: 18px;
+    margin-right: 25px;
+    flex-shrink: 0;
+    opacity: 0.46;
+    filter: brightness(0);
+}
+
+.suggest-item-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* hover 和键盘选中共用 .active 样式 */
+.suggest-item:hover,
+.suggest-item.active {
+    background: #f0f2ff;
+    color: #1a1a1a;
+}
+
+/* ---------- 我的导航 ---------- */
+#s-nav-wrapper {
+    position: relative;
+    width: 780px;
+    margin: 14px auto 0;
+}
+
+/* 白色毛玻璃卡片 */
+.site-card {
+    background: rgba(255, 255, 255, 0.60);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-radius: 18px;
+    padding: 0 24px 36px;
+    box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.45);
+    height: 260px;
+}
+
+/* 标题栏 */
+.site-card-header {
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.site-card-title {
+    font-size: 16px;
+    color: transparent;
+    text-shadow: 0 0 0 #222;
+    font-weight: 600;
+    padding-top: 5px;
+}
+
+/* BGM 播放控制栏 */
+.bgm-controls {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    margin-left: auto;
+    margin-top: 5px;
+}
+
+.bgm-btn {
+    background: none;
+    border: 1px solid transparent;
+    font-size: 21px;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 3px;
+    color: #444;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bgm-btn:hover {
+    filter: hue-rotate(160deg) saturate(5);
+}
+.bgm-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+/* BGM 播放列表面板 — 毛玻璃浮层，无描边，固定宽度 */
+.bgm-playlist-panel {
+    display: none;
+    position: fixed;
+    width: 270px;
+    height: 260px;
+    overflow: hidden;
+    z-index: 9999;
+    background: rgba(255, 255, 255, 0.60);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-radius: 18px;
+}
+
+/* 内层滚动容器 — 隐藏滚动条滑块 */
+.bgm-playlist-inner {
+    height: 100%;
+    overflow-y: auto;
+    scrollbar-width: none;           /* Firefox */
+    -ms-overflow-style: none;        /* IE/Edge */
+}
+.bgm-playlist-inner::-webkit-scrollbar {
+    display: none;                   /* Chrome/Safari */
+}
+
+/* 播放列表项 — 固定宽度 + 溢出隐藏，hover 时 marquee 滚动 */
+.bgm-playlist-item {
+    display: block;
+    text-align: center;
+    padding: 5px 20px;
+    font-size: 13px;
+    color: #444;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 0;
+    line-height: 1.45;
+    width: 100%;
+}
+
+/* 歌名内联 span — 用于 marquee 动画 */
+.bgm-playlist-item > span {
+    display: inline-block;
+    white-space: nowrap;
+}
+
+/* 仅溢出项在 hover 时启动 marquee 滚动 */
+.bgm-playlist-item:hover > span.marquee-overflow {
+    animation: bgmMarquee 4s linear infinite;
+}
+
+.bgm-playlist-item:hover > span {
+    text-decoration: underline;
+}
+
+.bgm-playlist-item.current {
+    color: #315efb;
+}
+
+.bgm-playlist-item.current:hover > span {
+    text-decoration: underline;
+}
+
+/* 歌名 marquee：从右到左循环滚动（溢出时触发） */
+@keyframes bgmMarquee {
+    0%   { transform: translateX(0); }
+    30%  { transform: translateX(0); }
+    100% { transform: translateX(calc(-100% + 230px)); }
+}
+
+/* 隔行变色 — 双数行叠加3%黑，模拟Excel条纹 */
+.bgm-playlist-item:nth-child(even) {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+/* hover 和 current 在隔行之上叠加，不受条纹影响（靠权重自动覆盖） */
+
+/* 站点网格容器 - Grid锁定7列2行 */
+.site-pills {
+    display: grid;
+    grid-template-columns: repeat(7, 80px);
+    gap: 16px 28px;
+    justify-content: center;
+    padding-top: 7px;
+}
+
+/* 单个站点项：圆形图标在上 + 名称在下 */
+.site-pill {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 80px;
+    height: 84px;
+    padding: 6px 4px;
+    background: transparent;
+    border-radius: 12px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    box-sizing: border-box;
+}
+
+.site-pill:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.site-pill:hover .site-pill-name {
+    color: #315efb;
+}
+
+/* 站点图标（圆形） */
+.site-pill-icon {
+    display: block;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    flex-shrink: 0;
+    object-fit: contain;
+    margin: 0 auto 8px;
+}
+
+/* 网易云音乐图标旋转动画 */
+.bgm-spin-icon {
+    animation: bgmSpin 8s linear infinite;
+    animation-play-state: paused;
+}
+
+.bgm-spin-icon.playing {
+    animation-play-state: running;
+}
+
+@keyframes bgmSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+/* 站点名称 */
+.site-pill-name {
+    font-size: 13px;
+    color: #222;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 72px;
+    line-height: 1.2;
+    text-align: center;
+}
+
+/* 隐藏旧的底部链接 */
+#s_lm_wrap {
+    display: none;
+}
+
+/* ---------- 底部信息 ---------- */
+#foot {
+    text-align: center;
+    padding: 20px 0;
+    color: rgba(0, 0, 0, 0.8);
+    font-size: 15px;
+    position: relative;
+    top: 10px;
+}
+
+/* ========================================
+   响应式适配
+   ======================================== */
+
+/* 大屏幕优化 */
+@media screen and (min-width: 1920px) {
+    #lg {
+        max-height: 350px;
+    }
+}
+
+/* 小屏幕简化 */
+@media screen and (max-width: 1100px) {
+    #wrapper {
+        min-width: auto;
+    }
+    .top-nav a {
+        margin-right: 14px;
+        font-size: 13px;
+    }
+}
+
+/* 手机版：仅保留壁纸背景 + Logo + 搜索框 + 底部英文 */
+@media screen and (max-width: 768px) {
+    #wrapper {
+        min-width: auto;
+    }
+
+    /* ---------- 隐藏：顶部导航 / 天气 / 顶栏底色 / 导航卡片 / 以图搜图 ---------- */
+    .top-nav,
+    .top-nav-right,
+    #s-nav-wrapper,
+    .search-left-icon-wrapper {
+        display: none;
+    }
+    #wrapper::before {
+        display: none;
+    }
+
+    /* ---------- 头部重置（顶栏隐藏后不需要留空间，取消垂直偏移） ---------- */
+    #head {
+        padding-top: 0;
+        margin-top: 0;
+    }
+
+    /* ---------- Logo 缩小 ---------- */
+    #lg {
+        height: auto;
+        min-height: 0;
+    }
+    .logo-layer {
+        width: 270px;
+        height: 85px;
+        margin-left: -135px;
+    }
+
+    /* ---------- 搜索框自适应宽度 ---------- */
+    #form {
+        width: 92vw;
+        max-width: 500px;
+    }
+    .s_form_wrapper {
+        width: 100%;
+    }
+    #search-suggestions {
+        width: 100%;
+    }
+    .suggest-item {
+        padding-left: 14px;
+        padding-right: 8px;
+    }
+    .suggest-item-icon {
+        display: none;
+    }
+    #kw {
+        padding: 0 110px 0 14px;
+    }
+    #kw:not(:placeholder-shown) {
+        padding: 0 110px 4px 14px;
+    }
+
+    /* ---------- 引擎按钮 ---------- */
+    .search-engine-btns {
+        right: 7px;
+        gap: 4px;
+    }
+    .search-engine-btn {
+        width: 36px;
+        height: 36px;
+    }
+    .search-engine-btn img {
+        width: 36px;
+        height: 36px;
+    }
+
+    /* ---------- 底部文字 ---------- */
+    #foot {
+        font-size: 12px;
+    }
+}
+
+/* 高分辨率大屏（4K 150% 等，CSS像素高度 ≥ 1200px）向上偏移（仅桌面端） */
+@media screen and (min-height: 1200px) and (min-width: 769px) {
+    #head {
+        margin-top: -180px;
+    }
+}
+
+/* 小屏幕高度（≤810px）减少上移量，避免内容偏上（仅桌面端） */
+@media screen and (max-height: 810px) and (min-width: 769px) {
+    #head {
+        margin-top: -30px;
+    }
+}
+
+/* 暗色模式基础支持 */
+@media (prefers-color-scheme: dark) {
+    /* 暂不强制切换，保持皮肤效果 */
+}
+
+/* 搜索框左侧图标外层容器 */
+.search-left-icon-wrapper {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    z-index: 2;
+    border-radius: 4px;
+}
+
+/* file input 由浏览器原生 label[for] 机制激活，display:none 安全 */
+#image-upload {
+    display: none;
+}
+
+/* 搜索框左侧图标容器（label 元素，可点击） */
+.search-left-icon-label {
+    display: block;
+    position: relative;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+/* 无图片时 hover 变暗 */
+.search-left-icon-wrapper:not(.has-image) .search-left-icon-label:hover {
+    opacity: 0.85;
+}
+
+/* 有图片时 hover 缩略图半透明，露出 × 按钮 */
+.search-left-icon-wrapper.has-image .search-left-icon-label:hover .search-left-icon {
+    opacity: 0.5;
+}
+
+/* ========================================
+   Logo 亮度检测调试：采样区域描边 + 标签
+   ======================================== */
+
+/* 采样区域白色虚线描边（默认隐藏） */
+#logo-sample-outline {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    border: 2px dashed rgba(255, 255, 255, 0.75);
+    pointer-events: none;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+#logo-sample-outline.debug-active {
+    display: block;
+}
+
+/* 描边框内底部标签：成功/失败 | 色值 | 黑色/白色 */
+#logo-sample-label {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 2px 10px 4px;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 3px 3px 0 0;
+    color: #fff;
+    font-family: Arial, "Microsoft YaHei", sans-serif;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+#logo-sample-outline.debug-active #logo-sample-label {
+    display: block;
+}
+
+/* 状态图标：刷新按钮正上方，水平居中 + 4px间距 */
+#logo-sample-status-icon {
+    display: none;
+    position: absolute;
+    right: 4px;
+    bottom: 30px;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: bold;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 1;
+}
+#logo-sample-outline.debug-active #logo-sample-status-icon {
+    display: block;
+}
+#logo-sample-status-icon.status-success {
+    color: #4caf50;
+    background: rgba(0, 0, 0, 0.5);
+}
+#logo-sample-status-icon.status-error {
+    color: #f44336;
+    background: rgba(0, 0, 0, 0.5);
+}
+#logo-sample-status-icon.status-pending {
+    color: #ffc107;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+/* 刷新按钮：圆形，贴死右下角 */
+#logo-sample-refresh-btn {
+    display: none;
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font-size: 13px;
+    line-height: 24px;
+    text-align: center;
+    cursor: pointer;
+    pointer-events: auto;
+    z-index: 2;
+    transition: background 0.15s;
+}
+#logo-sample-refresh-btn:hover {
+    background: rgba(0, 0, 0, 0.7);
+}
+#logo-sample-refresh-btn:active {
+    background: rgba(255, 255, 255, 0.3);
+}
+#logo-sample-outline.debug-active #logo-sample-refresh-btn {
+    display: block;
+}
