@@ -370,46 +370,24 @@
     })();
     </script>
 
-    <!-- Logo 自适应：fetch + Blob URL 避免代理不一致，HSL-L 亮度判断 -->
+    <!-- 壁纸 Logo 配置（由 GitHub Actions 每小时更新） -->
+    <script src="https://searching-for.pages.dev/index_files/wallpaper/prod/logo_config.js"></script>
+
+    <!-- Logo 自适应：读取服务器预计算的 logo_config.js（无运行时 Canvas 采样） -->
     <script>
     (function() {
         var LOGO_DARK   = 'index_files/images/logo_dark.png';
         var LOGO_WHITE  = 'index_files/images/logo_white.png';
-        var SAMPLE_SCALE = 1.4;
-        var BRIGHT_THRESHOLD = 150;
-        var FOOT_COLOR_DARK  = 'rgba(0, 0, 0, 0.8)';
-        var FOOT_COLOR_WHITE = 'rgba(255, 255, 255, 0.8)';
-        var CACHE_KEY = 'logo_adapt_cache';
-        var CACHE_TTL  = 600000; // 10 分钟
-        window.__logoCacheKey = CACHE_KEY;
 
         var logoCurrent = document.getElementById('s_lg_img_a');
         var logoNext    = document.getElementById('s_lg_img_b');
         if (!logoCurrent || !logoNext) return;
 
-        var skinBg = document.getElementById('skin-bg');
-        if (!skinBg) return;
+        // 兼容调试面板的旧数据接口
+        window.__logoCacheKey = 'logo_adapt_cache';
 
-        // 调试数据（Ctrl+Click Footer 触发查看）
-        window.__logoDebugData = {
-            status: 'pending',          // 'pending' | 'cached' | 'success' | 'error_fetch' | 'error_canvas' | 'error_unknown'
-            wallpaperUrl: '',
-            rawW: 0, rawH: 0,           // 壁纸尺寸
-            sX: 0, sY: 0, sW: 0, sH: 0, // 采样区域 viewport 坐标
-            brightness: 0,               // 平均亮度
-            count: 0,                    // 有效像素数
-            threshold: BRIGHT_THRESHOLD,
-            formula: 'Relative',
-            logo: '',                    // 判定结果: 'logo_dark' | 'logo_white'
-            cached: false,
-            errorMsg: ''
-        };
-
-        var WALLPAPER_API = 'https://api.dujin.org/bing/1920.php';
-
-        function applyLogo(newSrc) {
-            var currentSrc = logoCurrent.src;
-            if (currentSrc.indexOf(newSrc) !== -1) return;
+        function applyLogo(newSrc, footColor) {
+            if (logoCurrent.src.indexOf(newSrc) !== -1) return;
 
             function doSwitch() {
                 logoNext.src = newSrc;
@@ -421,7 +399,7 @@
                 logoCurrent = logoNext;
                 logoNext = tmp;
                 var footEl = document.getElementById('foot');
-                if (footEl) footEl.style.color = (newSrc === LOGO_DARK ? FOOT_COLOR_DARK : FOOT_COLOR_WHITE);
+                if (footEl) footEl.style.color = footColor;
             }
 
             var preload = new Image();
@@ -435,161 +413,36 @@
             }
         }
 
-        function processImage(img) {
-            try {
-                var rect = logoCurrent.getBoundingClientRect();
-                var vpW  = window.innerWidth;
-                var vpH  = window.innerHeight;
-                var rawW = img.naturalWidth;
-                var rawH = img.naturalHeight;
+        function applyConfig() {
+            var config = window.__LOGO_CONFIG__;
+            if (!config) return;
+            var newSrc = (config.logo === 'white') ? LOGO_WHITE : LOGO_DARK;
+            var footColor = config.foot_color || 'rgba(255, 255, 255, 0.8)';
+            applyLogo(newSrc, footColor);
 
-                // 采样区域：Logo 居中扩大 1.4 倍
-                var sW = rect.width  * SAMPLE_SCALE;
-                var sH = rect.height * SAMPLE_SCALE;
-                var sX = rect.left + rect.width  / 2 - sW / 2;
-                var sY = rect.top  + rect.height / 2 - sH / 2;
-
-                // 记录采样区域 viewport 坐标（供调试描边用）
-                window.__logoDebugData.rawW = rawW;
-                window.__logoDebugData.rawH = rawH;
-                window.__logoDebugData.sX = Math.round(sX);
-                window.__logoDebugData.sY = Math.round(sY);
-                window.__logoDebugData.sW = Math.round(sW);
-                window.__logoDebugData.sH = Math.round(sH);
-
-                // cover + center 反向坐标换算
-                var scale  = Math.max(vpW / rawW, vpH / rawH);
-                var offX   = (vpW - rawW * scale) / 2;
-                var offY   = (vpH - rawH * scale) / 2;
-                var srcX = Math.round((sX - offX) / scale);
-                var srcY = Math.round((sY - offY) / scale);
-                var srcW = Math.round( sW / scale);
-                var srcH = Math.round( sH / scale);
-
-                // 边界裁剪
-                srcX = Math.max(0, Math.min(srcX, rawW - 1));
-                srcY = Math.max(0, Math.min(srcY, rawH - 1));
-                srcW = Math.min(srcW, rawW - srcX);
-                srcH = Math.min(srcH, rawH - srcY);
-                if (srcW <= 0 || srcH <= 0) return;
-
-                // Canvas 采样
-                var canvas = document.createElement('canvas');
-                canvas.width  = srcW;
-                canvas.height = srcH;
-                var ctx = canvas.getContext('2d');
-                ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH);
-                var imageData;
-                try {
-                    imageData = ctx.getImageData(0, 0, srcW, srcH);
-                } catch(taintedErr) {
-                    window.__logoDebugData.status = 'error_canvas';
-                    window.__logoDebugData.errorMsg = 'Canvas tainted: ' + taintedErr.message;
-                    return;
-                }
-                var data = imageData.data;
-
-                var brightTotal = 0, count = 0;
-                for (var i = 0; i < data.length; i += 4) {
-                    if (data[i + 3] < 128) continue;
-                    var r = data[i], g = data[i + 1], b = data[i + 2];
-                    // 相对亮度（WCAG） = 0.2126R + 0.7152G + 0.0722B
-                    brightTotal += 0.2126 * r + 0.7152 * g + 0.0722 * b;
-                    count++;
-                }
-                if (count === 0) return;
-
-                var brightness = brightTotal / count;
-                // 相对亮度 >= threshold → 黑色Logo；相对亮度 < threshold → 白色Logo
-                var newSrc = (brightness >= BRIGHT_THRESHOLD)
-                    ? LOGO_DARK : LOGO_WHITE;
-
-                applyLogo(newSrc);
-
-                window.__logoDebugData.status = 'success';
-                window.__logoDebugData.brightness = Math.round(brightness * 10) / 10;
-                window.__logoDebugData.count = count;
-                window.__logoDebugData.logo = newSrc === LOGO_DARK ? 'logo_dark' : 'logo_white';
-                window.__logoDebugData.cached = false;
-                window.__logoDebugData.errorMsg = '';
-
-                // 写入 10 分钟缓存
-                try {
-                    localStorage.setItem(CACHE_KEY, JSON.stringify({
-                        timestamp: Date.now(),
-                        logo: newSrc,
-                        brightness: Math.round(brightness * 10) / 10,
-                        footColor: (newSrc === LOGO_DARK ? FOOT_COLOR_DARK : FOOT_COLOR_WHITE)
-                    }));
-                } catch(e) {}
-
-                // 如果调试面板开着，自动刷新
-                if (typeof refreshDebugPanel === 'function') refreshDebugPanel();
-            } catch(e) {
-                window.__logoDebugData.status = 'error_unknown';
-                window.__logoDebugData.errorMsg = e.message || 'Unknown error';
-            }
-        }
-
-        function detectAndSwitch() {
-            // 读取缓存（不判过期）
-            var cached = null;
-            try { cached = JSON.parse(localStorage.getItem(CACHE_KEY)); } catch(e) {}
-
-            // 只要有缓存，立即应用作为过渡方案（避免从默认黑色闪烁）
-            if (cached) {
-                applyLogo(cached.logo);
-                var footEl = document.getElementById('foot');
-                if (footEl) footEl.style.color = cached.footColor;
-                window.__logoDebugData.brightness = cached.brightness;
-                window.__logoDebugData.logo = cached.logo === LOGO_DARK ? 'logo_dark' : 'logo_white';
-            }
-
-            // 缓存有效（10 分钟内）→ 直接结束，不走网络
-            if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
-                window.__logoDebugData.status = 'cached';
-                window.__logoDebugData.cached = true;
-                window.__logoDebugData.wallpaperUrl = WALLPAPER_API;
-                window.__logoDebugData.errorMsg = '';
-                if (typeof refreshDebugPanel === 'function') refreshDebugPanel();
-                return;
-            }
-
-            // 缓存过期或无缓存 → 后台异步采样
-            window.__logoDebugData.wallpaperUrl = WALLPAPER_API;
-            window.__logoDebugData.cached = false;
-
-            // CSS 直接加载壁纸（file:// 下正常工作，不受 CORS 限制）
-            // JS 通过 weserv 代理 + 缓存破坏参数做 Canvas 采样
-            var cacheBust = '&t=' + Date.now();
-            var proxyUrl = 'https://images.weserv.nl/?url=' + encodeURIComponent(WALLPAPER_API) + cacheBust;
-
-            window.__logoDebugData.proxy = true;
-            var img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = function() {
-                processImage(img);
+            // 为调试面板提供兼容数据
+            window.__logoDebugData = {
+                status: 'success',
+                wallpaperUrl: 'https://searching-for.pages.dev/index_files/wallpaper/prod/wallpaper.jpg',
+                rawW: config.wallpaper_raw_w || 1920,
+                rawH: config.wallpaper_raw_h || 1080,
+                brightness: config.brightness,
+                threshold: config.threshold || 150,
+                formula: config.formula || 'WCAG Relative',
+                logo: (config.logo === 'white') ? 'logo_white' : 'logo_dark',
+                count: config.pixel_count || 0,
+                cached: false,
+                errorMsg: ''
             };
-            img.onerror = function() {
-                window.__logoDebugData.status = 'error_fetch';
-                window.__logoDebugData.errorMsg = 'weserv 代理加载壁纸失败';
-            };
-            img.src = proxyUrl;
+
+            if (typeof refreshDebugPanel === 'function') refreshDebugPanel();
         }
 
-        // 延迟到 DOM 就绪后启动检测，避免阻塞页面加载
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', function() {
-                requestAnimationFrame(function() {
-                    requestAnimationFrame(detectAndSwitch);
-                });
-            });
-        } else {
-            requestAnimationFrame(function() {
-                requestAnimationFrame(detectAndSwitch);
-            });
-        }
-        window.__logoDetectAndSwitch = detectAndSwitch;
+        // __LOGO_CONFIG__ 由外部 <script> 标签同步加载，此处直接可用
+        applyConfig();
+
+        // 暴露给调试面板的刷新按钮
+        window.__logoDetectAndSwitch = applyConfig;
     })();
     </script>
 
@@ -650,23 +503,14 @@
 
         document.addEventListener('click', toggleDebug, true);
 
-        /* 刷新按钮：清除缓存后重新检测 */
+        /* 刷新按钮：重新读取 logo_config（无需网络请求，同步应用） */
         if (refreshBtn) {
             refreshBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                // 清除缓存，强制重新采样
-                try { localStorage.removeItem(window.__logoCacheKey || 'logo_adapt_cache'); } catch(e) {}
-                // 重置 debug 数据为检测中状态
-                if (window.__logoDebugData) {
-                    window.__logoDebugData.status = 'pending';
-                    window.__logoDebugData.cached = false;
-                }
-                updateStatusIcon('pending');
-                label.textContent = '检测中 | — | —';
-                // 触发重新检测
                 if (typeof window.__logoDetectAndSwitch === 'function') {
                     window.__logoDetectAndSwitch();
                 }
+                updateLabel();
             });
         }
 
@@ -687,17 +531,23 @@
 
         function updateLabel() {
             var d = window.__logoDebugData;
-            if (!d) return;
+            var cfg = window.__LOGO_CONFIG__;
+
+            if (!cfg) {
+                label.textContent = '配置未加载 | — | —';
+                updateStatusIcon('error');
+                return;
+            }
 
             var status, colorVal, verdict;
 
-            if (d.status === 'success' || d.status === 'cached') {
-                status = '成功';
+            if (d && (d.status === 'success' || d.status === 'cached')) {
+                status = cfg.date || '服务端';
                 colorVal = (typeof d.brightness === 'number')
                     ? d.brightness.toFixed(1) : '—';
                 verdict = d.logo === 'logo_dark' ? 'Dark' : 'White';
                 updateStatusIcon('success');
-            } else if (d.status === 'error_fetch' || d.status === 'error_canvas' || d.status === 'error_unknown') {
+            } else if (d && d.status !== 'pending') {
                 status = '失败';
                 colorVal = d.errorMsg || '—';
                 verdict = '默认黑色';
