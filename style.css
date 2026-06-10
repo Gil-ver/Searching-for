@@ -927,39 +927,7 @@ img {
     display: block;
 }
 
-/* 状态图标：刷新按钮正上方，水平居中 + 4px间距 */
-#logo-sample-status-icon {
-    display: none;
-    position: absolute;
-    right: 4px;
-    bottom: 30px;
-    width: 20px;
-    height: 20px;
-    line-height: 20px;
-    text-align: center;
-    font-size: 13px;
-    font-weight: bold;
-    border-radius: 50%;
-    pointer-events: none;
-    z-index: 1;
-}
-#logo-sample-outline.debug-active #logo-sample-status-icon {
-    display: block;
-}
-#logo-sample-status-icon.status-success {
-    color: #4caf50;
-    background: rgba(0, 0, 0, 0.5);
-}
-#logo-sample-status-icon.status-error {
-    color: #f44336;
-    background: rgba(0, 0, 0, 0.5);
-}
-#logo-sample-status-icon.status-pending {
-    color: #ffc107;
-    background: rgba(0, 0, 0, 0.5);
-}
-
-/* 刷新按钮：圆形，贴死右下角 */
+/* 临时切换按钮：圆形，贴死右下角 */
 #logo-sample-refresh-btn {
     display: none;
     position: absolute;

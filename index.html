@@ -203,8 +203,7 @@
         <!-- Logo 采样区域描边 -->
         <div id="logo-sample-outline">
             <div id="logo-sample-label"></div>
-            <span id="logo-sample-status-icon"></span>
-            <button id="logo-sample-refresh-btn" title="清除缓存并刷新检测">&#x1F501;</button>
+            <button id="logo-sample-refresh-btn" title="临时切换 Logo 颜色（刷新后复原）">&#x21C4;</button>
         </div>
 
     </div>
@@ -416,8 +415,12 @@
         function applyConfig() {
             var config = window.__LOGO_CONFIG__;
             if (!config) return;
-            var newSrc = (config.logo === 'white') ? LOGO_WHITE : LOGO_DARK;
-            var footColor = config.foot_color || 'rgba(255, 255, 255, 0.8)';
+            // 本地决策：亮度 >= 阈值 → dark logo，否则 white logo
+            var brightness = config.brightness;
+            var threshold = config.threshold || 128;
+            var isDark = (brightness >= threshold);
+            var newSrc = isDark ? LOGO_DARK : LOGO_WHITE;
+            var footColor = isDark ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)';
             applyLogo(newSrc, footColor);
 
             // 为调试面板提供兼容数据
@@ -426,10 +429,10 @@
                 wallpaperUrl: 'https://searching-for.pages.dev/index_files/wallpaper/prod/wallpaper.jpg',
                 rawW: config.wallpaper_raw_w || 1920,
                 rawH: config.wallpaper_raw_h || 1080,
-                brightness: config.brightness,
-                threshold: config.threshold || 150,
+                brightness: brightness,
+                threshold: threshold,
                 formula: config.formula || 'WCAG Relative',
-                logo: (config.logo === 'white') ? 'logo_white' : 'logo_dark',
+                logo: isDark ? 'logo_dark' : 'logo_white',
                 count: config.pixel_count || 0,
                 cached: false,
                 errorMsg: ''
@@ -451,7 +454,6 @@
     (function() {
         var outline = document.getElementById('logo-sample-outline');
         var label   = document.getElementById('logo-sample-label');
-        var statusIcon = document.getElementById('logo-sample-status-icon');
         var refreshBtn = document.getElementById('logo-sample-refresh-btn');
         if (!outline || !label) return;
 
@@ -481,7 +483,7 @@
 
         function toggleDebug(e) {
             if (!e.ctrlKey) return;
-            // 刷新按钮的点击由自身处理，不触发 toggle
+            // 切换按钮的点击由自身处理，不触发 toggle
             if (refreshBtn && refreshBtn.contains(e.target)) return;
             if (!isClickOnLogo(e)) return;
             e.preventDefault();
@@ -503,63 +505,48 @@
 
         document.addEventListener('click', toggleDebug, true);
 
-        /* 刷新按钮：重新读取 logo_config（无需网络请求，同步应用） */
+        /* 切换按钮：临时交换 Logo 颜色（不持久化，刷新即复原） */
         if (refreshBtn) {
             refreshBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                if (typeof window.__logoDetectAndSwitch === 'function') {
-                    window.__logoDetectAndSwitch();
-                }
+                var LOGO_DARK  = 'index_files/images/logo_dark.png';
+                var LOGO_WHITE = 'index_files/images/logo_white.png';
+                var imgA = document.getElementById('s_lg_img_a');
+                var imgB = document.getElementById('s_lg_img_b');
+                if (!imgA || !imgB) return;
+
+                // 根据当前显示的 Logo 决定切换到对侧
+                var currentSrc = (imgA.classList.contains('logo-current') ? imgA : imgB).src;
+                var isWhite = currentSrc.indexOf(LOGO_WHITE) !== -1;
+                var targetSrc = isWhite ? LOGO_DARK : LOGO_WHITE;
+                var footColor = isWhite ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)';
+
+                // 直接设置 imgB 并交换（跳过 applyLogo 的预加载）
+                var next = imgA.classList.contains('logo-current') ? imgB : imgA;
+                var curr = imgA.classList.contains('logo-current') ? imgA : imgB;
+                next.src = targetSrc;
+                curr.classList.remove('logo-current');
+                curr.classList.add('logo-next');
+                next.classList.remove('logo-next');
+                next.classList.add('logo-current');
+                var footEl = document.getElementById('foot');
+                if (footEl) footEl.style.color = footColor;
+                // 更新内部指针：交换后 current 是原来的 next
                 updateLabel();
             });
         }
 
-        function updateStatusIcon(state) {
-            if (!statusIcon) return;
-            statusIcon.className = '';
-            if (state === 'success') {
-                statusIcon.textContent = '\u2713';   // ✓
-                statusIcon.className = 'status-success';
-            } else if (state === 'error') {
-                statusIcon.textContent = '\u2717';   // ✗
-                statusIcon.className = 'status-error';
-            } else {
-                statusIcon.textContent = '\u23F3';   // ⏳
-                statusIcon.className = 'status-pending';
-            }
-        }
-
         function updateLabel() {
-            var d = window.__logoDebugData;
             var cfg = window.__LOGO_CONFIG__;
-
             if (!cfg) {
-                label.textContent = '配置未加载 | — | —';
-                updateStatusIcon('error');
+                label.textContent = '配置未加载';
                 return;
             }
-
-            var status, colorVal, verdict;
-
-            if (d && (d.status === 'success' || d.status === 'cached')) {
-                status = cfg.date || '服务端';
-                colorVal = (typeof d.brightness === 'number')
-                    ? d.brightness.toFixed(1) : '—';
-                verdict = d.logo === 'logo_dark' ? 'Dark' : 'White';
-                updateStatusIcon('success');
-            } else if (d && d.status !== 'pending') {
-                status = '失败';
-                colorVal = d.errorMsg || '—';
-                verdict = '默认黑色';
-                updateStatusIcon('error');
-            } else {
-                status = '检测中';
-                colorVal = '—';
-                verdict = '—';
-                updateStatusIcon('pending');
-            }
-
-            label.textContent = status + ' | ' + colorVal + ' | ' + verdict;
+            var datePart = (cfg.date || '').substring(5);  // "YYYY-MM-DD" → "MM-DD"
+            var brightness = (typeof cfg.brightness === 'number')
+                ? cfg.brightness.toFixed(1) : '—';
+            var threshold = cfg.threshold || 128;
+            label.textContent = datePart + ' | ' + brightness + ' (' + threshold + ')';
         }
         window.refreshDebugPanel = updateLabel;
     })();
