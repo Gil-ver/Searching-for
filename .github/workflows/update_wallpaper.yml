@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'Searching for⋯/index_files/wallpaper/update_wallpaper.py'
+      - 'index_files/wallpaper/update_wallpaper.py'
 
 permissions:
   contents: write
@@ -28,13 +28,13 @@ jobs:
         run: pip install Pillow
 
       - name: Run wallpaper update script
-        run: python "Searching for⋯/index_files/wallpaper/update_wallpaper.py"
+        run: python "index_files/wallpaper/update_wallpaper.py"
 
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "Searching for⋯/index_files/wallpaper/prod/"
+          git add "index_files/wallpaper/staging/" "index_files/wallpaper/prod/"
           if git diff --cached --quiet; then
             echo "No changes, skipping commit."
           else
