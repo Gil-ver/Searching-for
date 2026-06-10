@@ -45,7 +45,7 @@ CROP_W = 400
 CROP_H = 160
 CROP_FILE = "crop.jpg"
 
-BRIGHTNESS_THRESHOLD = 150   # ≥150 → dark logo, <150 → white logo
+BRIGHTNESS_THRESHOLD = 128   # ≥128 → dark logo, <128 → white logo
 JPEG_QUALITY = 92
 
 HEADERS = {
@@ -93,14 +93,12 @@ def compute_brightness(crop_img):
     return total / count, count
 
 
-def write_config(brightness, pixel_count, logo, img_w, img_h):
-    """Write logo_config.js to staging directory."""
+def write_config(brightness, pixel_count, img_w, img_h):
+    """Write logo_config.js to staging directory (data only, no decision)."""
     config = {
         "date": time.strftime("%Y-%m-%d", time.gmtime()),
         "wallpaper_raw_w": img_w,
         "wallpaper_raw_h": img_h,
-        "logo": logo,
-        "foot_color": "rgba(0, 0, 0, 0.8)" if logo == "dark" else "rgba(255, 255, 255, 0.8)",
         "brightness": round(brightness, 1),
         "pixel_count": pixel_count,
         "crop": {"x": CROP_X, "y": CROP_Y, "w": CROP_W, "h": CROP_H},
@@ -160,13 +158,11 @@ def main():
     crop.save(crop_path, "JPEG", quality=JPEG_QUALITY)
     print(f"  OK Saved to staging/{CROP_FILE}")
 
-    # 5. Decide logo color
-    logo = "dark" if brightness >= BRIGHTNESS_THRESHOLD else "white"
-    print(f"Verdict: brightness={brightness:.1f} >= threshold={BRIGHTNESS_THRESHOLD}? "
-          f"{'Yes' if logo == 'dark' else 'No'} → logo={logo}")
+    # 5. Log brightness result (color decision is left to browser-side JS)
+    print(f"Brightness: {brightness:.1f} (threshold={BRIGHTNESS_THRESHOLD})")
 
-    # 6. Write logo_config.js to staging/
-    write_config(brightness, pixel_count, logo, raw_w, raw_h)
+    # 6. Write logo_config.js to staging/ (data only, no logo/foot_color)
+    write_config(brightness, pixel_count, raw_w, raw_h)
     print(f"  OK Wrote staging/{CONFIG_FILE}")
 
     # 7. Sync staging/ → prod/ (staging stays as permanent archive)
