@@ -3,7 +3,7 @@ name: Update Bing Wallpaper & Logo Detection
 # 每小时整点执行；失败则等下一小时重试
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '23 * * * *'
   workflow_dispatch:
   push:
     paths:
