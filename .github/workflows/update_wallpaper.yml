@@ -39,6 +39,7 @@ jobs:
             echo "No changes, skipping commit."
           else
             git commit -m "[auto] Update wallpaper & logo detection ($(date -u +%Y-%m-%d))"
+            git pull --rebase origin main
             git push
             echo "Wallpaper updated and pushed."
           fi
