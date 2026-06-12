@@ -1,9 +1,9 @@
 name: Update Bing Wallpaper & Logo Detection
 
-# 每小时整点执行；失败则等下一小时重试
+# 北京时间 12:00~23:59 每 10 分钟高频触发；脚本内置当天去重，成功一次后当天跳过
 on:
   schedule:
-    - cron: '23 * * * *'
+    - cron: '*/10 4-15 * * *'
   workflow_dispatch:
   push:
     paths:
