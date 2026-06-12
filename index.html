@@ -415,9 +415,9 @@
         function applyConfig() {
             var config = window.__LOGO_CONFIG__;
             if (!config) return;
-            // 本地决策：亮度 >= 阈值 → dark logo，否则 white logo
+            // 本地决策：亮度 >= 阈值 → dark logo，否则 white logo（阈值纯本地决定）
             var brightness = config.brightness;
-            var threshold = config.threshold || 128;
+            var threshold = 100;
             var isDark = (brightness >= threshold);
             var newSrc = isDark ? LOGO_DARK : LOGO_WHITE;
             var footColor = isDark ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)';
@@ -481,22 +481,25 @@
                    e.clientY >= rect.top  && e.clientY <= rect.bottom;
         }
 
+        function reposition() {
+            var r = calcSampleRect();
+            if (r) {
+                outline.style.left   = r.x + 'px';
+                outline.style.top    = r.y + 'px';
+                outline.style.width  = r.w + 'px';
+                outline.style.height = r.h + 'px';
+            }
+        }
+
         function toggleDebug(e) {
             if (!e.ctrlKey) return;
-            // 切换按钮的点击由自身处理，不触发 toggle
             if (refreshBtn && refreshBtn.contains(e.target)) return;
             if (!isClickOnLogo(e)) return;
             e.preventDefault();
             active = !active;
             if (active) {
                 outline.classList.add('debug-active');
-                var r = calcSampleRect();
-                if (r) {
-                    outline.style.left   = r.x + 'px';
-                    outline.style.top    = r.y + 'px';
-                    outline.style.width  = r.w + 'px';
-                    outline.style.height = r.h + 'px';
-                }
+                reposition();
                 updateLabel();
             } else {
                 outline.classList.remove('debug-active');
@@ -504,6 +507,9 @@
         }
 
         document.addEventListener('click', toggleDebug, true);
+        window.addEventListener('resize', function() {
+            if (active) reposition();
+        });
 
         /* 切换按钮：临时交换 Logo 颜色（不持久化，刷新即复原） */
         if (refreshBtn) {
@@ -545,7 +551,7 @@
             var datePart = (cfg.date || '').substring(5);  // "YYYY-MM-DD" → "MM-DD"
             var brightness = (typeof cfg.brightness === 'number')
                 ? cfg.brightness.toFixed(1) : '—';
-            var threshold = cfg.threshold || 128;
+            var threshold = cfg.threshold || 100;
             label.textContent = datePart + ' | ' + brightness + ' (' + threshold + ')';
         }
         window.refreshDebugPanel = updateLabel;
