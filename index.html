@@ -417,7 +417,7 @@
             if (!config) return;
             // 本地决策：亮度 >= 阈值 → dark logo，否则 white logo（阈值纯本地决定）
             var brightness = config.brightness;
-            var threshold = 100;
+            var threshold = 128;
             var isDark = (brightness >= threshold);
             var newSrc = isDark ? LOGO_DARK : LOGO_WHITE;
             var footColor = isDark ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)';
@@ -551,7 +551,7 @@
             var datePart = (cfg.date || '').substring(5);  // "YYYY-MM-DD" → "MM-DD"
             var brightness = (typeof cfg.brightness === 'number')
                 ? cfg.brightness.toFixed(1) : '—';
-            var threshold = cfg.threshold || 100;
+            var threshold = cfg.threshold || 128;
             label.textContent = datePart + ' | ' + brightness + ' (' + threshold + ')';
         }
         window.refreshDebugPanel = updateLabel;
