@@ -1,11 +1,12 @@
 """
 Bing Wallpaper Download & Logo Brightness Detection Script
-Usage: python update_wallpaper.py
+Usage: python update_wallpaper.py [--force]
   1. Download today's Bing wallpaper (1920x1080)
   2. Crop Logo area from a copy using user-measured rectangle
   3. Compute WCAG relative luminance → dark/white logo decision
   4. Sync staging/ → prod/ (staging kept as permanent archive)
   5. Daily dedup: skip if already updated today (Beijing time)
+     --force: bypass daily dedup (for manual workflow_dispatch)
 """
 import json
 import os
@@ -143,7 +144,9 @@ def write_config(brightness, pixel_count, img_w, img_h):
 
 def main():
     # 0. Daily dedup — skip if already updated today (Beijing time)
-    if should_skip_today():
+    #    --force bypasses this check (used by workflow_dispatch)
+    force = '--force' in sys.argv
+    if not force and should_skip_today():
         return
 
     # 1. Download wallpaper
