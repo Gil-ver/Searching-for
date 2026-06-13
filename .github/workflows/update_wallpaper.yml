@@ -1,10 +1,16 @@
 name: Update Bing Wallpaper & Logo Detection
 
 # 北京时间 12:00~23:59 每 10 分钟高频触发；脚本内置当天去重，成功一次后当天跳过
+# workflow_dispatch 默认 force=true，手动触发不受去重限制
 on:
   schedule:
     - cron: '*/10 4-15 * * *'
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force re-run (skip daily dedup)'
+        type: boolean
+        default: true
   push:
     paths:
       - 'index_files/wallpaper/update_wallpaper.py'
@@ -28,7 +34,7 @@ jobs:
         run: pip install Pillow
 
       - name: Run wallpaper update script
-        run: python "index_files/wallpaper/update_wallpaper.py"
+        run: python "index_files/wallpaper/update_wallpaper.py" ${{ inputs.force && '--force' || '' }}
 
       - name: Commit and push if changed
         run: |
