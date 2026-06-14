@@ -15,6 +15,7 @@
 - **快捷导航**：下方集成常用高频网站图标，一键直达核心应用。
 
 ---
-*All good things to those who wait.*
 
 ![主页预览图](preview.png)
+
+*All good things to those who wait.*
