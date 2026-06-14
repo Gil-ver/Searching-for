@@ -32,8 +32,8 @@ except ImportError:
 
 # ── Configuration ──────────────────────────────────────────────
 
-API_URL = "https://api.dujin.org/bing/1920.php"
-API_FALLBACK = "https://bing.bitdata.top/api/wallpaper?format=image"
+API_META_URL = "https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=en-US"
+API_FALLBACK = "https://api.dujin.org/bing/1920.php"
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 STAGING_DIR = os.path.join(SCRIPT_DIR, "staging")
@@ -70,6 +70,17 @@ def download_wallpaper(url, timeout=30):
             return data
     except Exception as e:
         raise RuntimeError(f"Download failed: {e}")
+
+
+def get_bing_image_url(meta_url=API_META_URL, timeout=15):
+    """Fetch today's wallpaper URL from Bing official JSON API.
+    Returns (image_url, title) tuple."""
+    req = urllib.request.Request(meta_url, headers=HEADERS)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        meta = json.loads(resp.read().decode("utf-8"))
+    img = meta["images"][0]
+    base = "https://www.bing.com"
+    return (base + img["url"], img.get("title", ""))
 
 
 def compute_brightness(crop_img):
@@ -152,11 +163,15 @@ def main():
     # 1. Download wallpaper
     print("Downloading wallpaper...")
     try:
-        img_bytes = download_wallpaper(API_URL)
-        print(f"  OK {len(img_bytes) // 1024} KB from primary API")
+        # Step 1a: get today's image URL from Bing official API
+        img_url, title = get_bing_image_url()
+        print(f"  Bing title: {title}")
+        print(f"  Image URL: {img_url}")
+        img_bytes = download_wallpaper(img_url)
+        print(f"  OK {len(img_bytes) // 1024} KB from Bing official")
     except Exception as e:
-        print(f"  Primary API failed: {e}")
-        print(f"  Trying fallback...")
+        print(f"  Bing official failed: {e}")
+        print(f"  Trying fallback (dujin.org)...")
         try:
             img_bytes = download_wallpaper(API_FALLBACK)
             print(f"  OK {len(img_bytes) // 1024} KB from fallback API")
