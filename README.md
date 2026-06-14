@@ -14,8 +14,5 @@
 - **环境自适应**：原生 JavaScript 智能检测背景亮度，全自动切换浅色/深色 Logo。
 - **快捷导航**：下方集成常用高频网站图标，一键直达核心应用。
 
----
-
 ![主页预览图](preview.png)
-
 *All good things to those who wait.*
