@@ -4,7 +4,7 @@ name: Update Bing Wallpaper & Logo Detection
 # workflow_dispatch 默认 force=true，手动触发不受去重限制
 on:
   schedule:
-    - cron: '*/10 4-15 * * *'
+    - cron: '0,10,20,30,40,50 4-15 * * *'
   workflow_dispatch:
     inputs:
       force:
