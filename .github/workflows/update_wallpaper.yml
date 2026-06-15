@@ -1,10 +1,11 @@
 name: Update Bing Wallpaper & Logo Detection
 
-# 北京时间 12:00~23:59 每 10 分钟高频触发；脚本内置当天去重，成功一次后当天跳过
+# 北京时间 17:00~23:59 每 10 分钟高频触发；Bing 壁纸约 16:00 更新，17:00 开始抓取
+# 脚本内置当天去重，成功一次后当天跳过
 # workflow_dispatch 默认 force=true，手动触发不受去重限制
 on:
   schedule:
-    - cron: '0,10,20,30,40,50 4-15 * * *'
+    - cron: '0,10,20,30,40,50 9-15 * * *'
   workflow_dispatch:
     inputs:
       force:
