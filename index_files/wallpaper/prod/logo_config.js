@@ -3,13 +3,13 @@ var __LOGO_CONFIG__ = {
   "date": "2026-06-23",
   "wallpaper_raw_w": 1920,
   "wallpaper_raw_h": 1080,
-  "brightness": 129.5,
-  "pixel_count": 16635,
+  "brightness": 129.1,
+  "pixel_count": 11645,
   "crop": {
     "x": 760,
     "y": 225,
     "w": 400,
     "h": 160
   },
-  "formula": "WCAG Relative (0.2126R + 0.7152G + 0.0722B)"
+  "formula": "WCAG Relative via Cloudflare Workers"
 };
