@@ -1,0 +1,1 @@
+var __BING_TRIVIA__ = ~)^�+-zo�;
