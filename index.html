@@ -36,8 +36,8 @@
                     <span class="top-nav-trigger">图片 ▾</span>
                     <div class="top-nav-dropdown-menu">
                         <a href="https://image.baidu.com/" target="_blank">百度图片</a>
-                        <a href="https://www.google.com/imghp" target="_blank">Google图片</a>
                         <a href="https://www.bing.com/images" target="_blank">必应图片</a>
+                        <a href="https://www.google.com/imghp" target="_blank">Google图片</a>
                         <a href="https://image.so.com/" target="_blank">360图片</a>
                         <a href="https://pic.sogou.com/" target="_blank">搜狗图片</a>
                     </div>
@@ -45,10 +45,9 @@
                 <div class="top-nav-dropdown">
                     <span class="top-nav-trigger">翻译 ▾</span>
                     <div class="top-nav-dropdown-menu">
-                        <a href="https://fanyi.baidu.com/" target="_blank">百度翻译</a>
                         <a href="https://fanyi.sogou.com/" target="_blank">搜狗翻译</a>
-                        <a href="https://translate.google.com/" target="_blank">Google翻译</a>
                         <a href="https://www.bing.com/translator" target="_blank">必应翻译</a>
+                        <a href="https://translate.google.com/" target="_blank">Google翻译</a>
                     </div>
                 </div>
                 <div class="top-nav-dropdown">
@@ -56,7 +55,6 @@
                     <div class="top-nav-dropdown-menu">
                         <a href="https://gemini.google.com/" target="_blank">Gemini</a>
                         <a href="https://chatgpt.com/" target="_blank">ChatGPT</a>
-                        <a href="https://app.lobehub.com/" target="_blank">Lobehub</a>
                         <a href="https://chat.deepseek.com/" target="_blank">Deepseek</a>
                         <a href="https://www.doubao.com/chat/" target="_blank">豆包</a>
                         <a href="https://yuanbao.tencent.com/chat/" target="_blank">元宝</a>
@@ -100,9 +98,9 @@
                                onclick="return doSearch('bing', event)">
                                 <img src="index_files/images/search_bing.png" alt="Bing" width="36" height="36">
                             </a>
-                            <a class="search-engine-btn" href="https://www.google.com/search?q="
+                            <a class="search-engine-btn" href="https://www.google.co.jp/search?q="
                                onclick="return doSearch('google', event)">
-                                <img src="index_files/images/search_google.png" alt="Google" width="36" height="36">
+                                <img src="index_files/images/search_google.png" alt="Google 日本" width="36" height="36">
                             </a>
                             <a class="search-engine-btn" href="https://www.baidu.com/s?wd="
                                onclick="return doSearch('baidu', event)">
@@ -117,16 +115,6 @@
             <!-- 💫 Visiting -->
             <div id="s-nav-wrapper">
                 <div class="site-card">
-                    <div class="site-card-header">
-                        <span class="site-card-title"><span class="title-emoji">💫 </span>Visiting</span>
-                        <div class="bgm-controls" id="bgm-controls" style="display:none;">
-                            <button class="bgm-btn" id="bgm-mode-btn">🔀</button>
-                            <button class="bgm-btn" id="bgm-prev-btn">⏮️</button>
-                            <button class="bgm-btn" id="bgm-play-btn">▶️</button>
-                            <button class="bgm-btn" id="bgm-next-btn">⏭️</button>
-                            <button class="bgm-btn" id="bgm-list-btn">🔠</button>
-                        </div>
-                    </div>
                     <div class="site-pills">
                         <a class="site-pill" href="https://www.taobao.com/" target="_blank">
                             <img class="site-pill-icon" src="index_files/images/list - 1.png" alt="淘宝">
@@ -195,8 +183,15 @@
             </div>
         </div>
 
-        <!-- 底部信息 -->
+        <!-- 底部信息：BGM 控件绑定在句子上方（脱离文档流，不影响布局） -->
         <div id="foot">
+            <div class="bgm-controls" id="bgm-controls" style="display:none;">
+                <button class="bgm-btn" id="bgm-mode-btn">🔀</button>
+                <button class="bgm-btn" id="bgm-prev-btn">⏮️</button>
+                <button class="bgm-btn" id="bgm-play-btn">▶️</button>
+                <button class="bgm-btn" id="bgm-next-btn">⏭️</button>
+                <button class="bgm-btn" id="bgm-list-btn">🔠</button>
+            </div>
             <span id="foot-text"> - All good things to those who wait. - </span>
         </div>
 
@@ -580,9 +575,8 @@
             google: 'encoded_image'
         };
 
-        /* ---- 文件选择 → 缩略图预览 ---- */
-        fileInput.addEventListener('change', function(e) {
-            var file = e.target.files && e.target.files[0];
+        /* ---- 统一文件入口：类型校验 → loading → 缩略图预览 → 写剪贴板 ---- */
+        function handleFile(file) {
             if (!file) return;
 
             // 类型校验
@@ -635,7 +629,43 @@
                 fileInput.value = '';
             };
             reader.readAsDataURL(file);
+        }
+
+        /* ---- 点击选择文件 ---- */
+        fileInput.addEventListener('change', function(e) {
+            var file = e.target.files && e.target.files[0];
+            handleFile(file);
         });
+
+        /* ---- 拖拽文件到按钮：拖入变灰，放下等同点击上传 ---- */
+        (function() {
+            var dragDepth = 0;   // 计数器，避免子元素间移动导致灰态闪烁
+
+            iconWrapper.addEventListener('dragenter', function(e) {
+                e.preventDefault();
+                if (dragDepth === 0) iconWrapper.classList.add('drag-over');
+                dragDepth++;
+            });
+            iconWrapper.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+            });
+            iconWrapper.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                dragDepth--;
+                if (dragDepth <= 0) {
+                    dragDepth = 0;
+                    iconWrapper.classList.remove('drag-over');
+                }
+            });
+            iconWrapper.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dragDepth = 0;
+                iconWrapper.classList.remove('drag-over');
+                var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+                handleFile(file);
+            });
+        })();
 
         /* ---- 清除已上传图片 ---- */
         window.clearUploadedImage = function() {
@@ -665,9 +695,9 @@
                     return false;
                 }
 
-                // Google：本地 file:// 用 Form POST，线上因 Google 安全策略 403 则打开图片首页
+                // Google：本地 file:// 用 Form POST，线上因 Google 安全策略 403 则打开谷歌日本图片首页
                 if (window.location.protocol !== 'file:') {
-                    window.open('https://www.google.com.hk/imghp', '_blank');
+                    window.open('https://www.google.co.jp/imghp', '_blank');
                     return false;
                 }
 
@@ -704,7 +734,7 @@
 
             var urls = {
                 bing:   q ? 'https://www.bing.com/search?q='       + encodeURIComponent(q) : 'https://www.bing.com',
-                google: q ? 'https://www.google.com/search?q='     + encodeURIComponent(q) : 'https://www.google.com',
+                google: q ? 'https://www.google.co.jp/search?q='   + encodeURIComponent(q) : 'https://www.google.co.jp',
                 baidu:  q ? 'https://www.baidu.com/s?wd='          + encodeURIComponent(q) : 'https://www.baidu.com'
             };
 
@@ -1277,19 +1307,28 @@
             }
         });
 
-        // 🎶 播放列表按钮：切换面板显隐 + 打开时自动滚到当前项 + 溢出检测
+        // 🎶 播放列表按钮：抽屉式拉出/推回 + 打开时自动滚到当前项 + 溢出检测
         document.getElementById('bgm-list-btn').addEventListener('click', function(e) {
             e.preventDefault();
             var panel = document.getElementById('bgm-playlist-panel');
-            if (panel.style.display === 'none' || panel.style.display === '') {
+            var isOpen = panel.classList.contains('open');
+            if (!isOpen) {
+                /* 打开：先定位显示，下一帧加 .open 触发向右拉出 */
                 positionPlaylistPanel();
                 panel.style.display = 'block';
+                requestAnimationFrame(function() {
+                    requestAnimationFrame(function() { panel.classList.add('open'); });
+                });
                 setTimeout(function() {
                     detectPlaylistOverflow();
                     scrollPlaylistToCurrent();
                 }, 50);
             } else {
-                panel.style.display = 'none';
+                /* 关闭：先移除 .open 向左推回，过渡结束再 display:none */
+                panel.classList.remove('open');
+                setTimeout(function() {
+                    if (!panel.classList.contains('open')) panel.style.display = 'none';
+                }, 460);
             }
         });
 
@@ -1420,7 +1459,7 @@
             if (!('mediaSession' in navigator)) return;
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: program.name,
-                artist: 'Searching For',
+                artist: 'Searching for⋯',
                 artwork: [
                     { src: 'index_files/images/list - 1.png', sizes: '96x96', type: 'image/png' }
                 ]
@@ -1432,6 +1471,68 @@
 
         // 启动提示
         console.log('[BGM] 播客播放器就绪。\n  Ctrl+Click 网易云音乐图标 = 随机播放 | 右上角控制栏操作切歌/换模式');
+    })();
+    </script>
+
+    <!-- 右下角 trivia 卡片（复刻 Bing homepage quiz：
+         默认不可见 → hover 热区显示半透明小 Q → hover 小 Q 展开为卡片） -->
+    <div id="corner-card" class="corner-card-outer">
+        <!-- 背景取景框：60×60 → 300×H 长大；Q 图标钉在其右下角 -->
+        <div class="corner-card-inner" tabindex="0" role="dialog" aria-label="今日美图">
+            <img class="corner-card-icon" src="index_files/images/必应故事.svg" alt="" role="presentation">
+        </div>
+        <!-- 文字层：inner 的兄弟，钉死在展开后的最终位置、全程不移动；
+             用 clip-path 剪切蒙版，只在 inner 面板区域内显示 -->
+        <div class="corner-card-content">
+            <div class="corner-card-title"><span></span></div>
+            <div class="corner-card-divider"></div>
+            <a class="corner-card-body" href="#" target="_blank" rel="noopener"></a>
+            <div class="corner-card-credit"></div>
+        </div>
+    </div>
+
+    <!-- 今日美图文字（n8n 每日由 bing.json 自动包装生成） -->
+    <script src="index_files/wallpaper/prod/bing.js"></script>
+    <script>
+    (function() {
+        var d = window.__BING_TRIVIA__ && __BING_TRIVIA__.images && __BING_TRIVIA__.images[0];
+        if (!d) return;
+        var titleEl  = document.querySelector('#corner-card .corner-card-title span');
+        var bodyEl   = document.querySelector('#corner-card .corner-card-body');
+        var creditEl = document.querySelector('#corner-card .corner-card-credit');
+
+        if (d.title) titleEl.textContent = d.title;
+
+        /* copyright 形如「地点描述 (© 作者/机构)」：
+           最后一个括号前 → 正文；括号内 → 版权行 */
+        if (d.copyright) {
+            var idx = d.copyright.lastIndexOf('(');
+            if (idx >= 0) {
+                bodyEl.textContent   = d.copyright.slice(0, idx).trim();
+                creditEl.textContent = d.copyright.slice(idx + 1, d.copyright.lastIndexOf(')') >= 0
+                    ? d.copyright.lastIndexOf(')') : d.copyright.length).trim();
+            } else {
+                bodyEl.textContent = d.copyright;
+            }
+        }
+
+        /* 正文链接：copyrightlink */
+        if (d.copyrightlink) bodyEl.href = d.copyrightlink;
+    })();
+    </script>
+
+    <script>
+    /* 仅初始化：量一次文字层自然高度 H（最小 180），写进 --h 并固定文字层盒子。
+       之后所有展开/收起（宽、高、left、clip、淡入淡出）全部由纯 CSS :hover/:focus 驱动，
+       JS 不保留任何交互状态 → 宽高对称、新标签返回也不会残留竖条。 */
+    (function() {
+        var outer   = document.getElementById('corner-card');
+        var content = outer.querySelector('.corner-card-content');
+
+        content.style.height = 'auto';
+        var H = Math.max(180, Math.ceil(content.getBoundingClientRect().height));
+        content.style.height = H + 'px';
+        outer.style.setProperty('--h', H + 'px');
     })();
     </script>
 

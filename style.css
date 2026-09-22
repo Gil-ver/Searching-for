@@ -213,39 +213,36 @@ img {
     pointer-events: none;
 }
 
-/* ---------- 头部容器 ---------- */
+/* ---------- 头部容器：全屏 fixed flex，中心块在任何视口下自动几何居中 ---------- */
 #head {
-    flex: 1;
+    position: fixed;
+    inset: 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding-top: 60px;  /* 留给顶部导航栏 */
-    margin-top: -100px;  /* 整体上移100px */
+    /* 不使用 transform：避免内部 fixed 顶栏相对本容器定位而错位 */
 }
 
-/* ---------- 搜索主体包裹 ---------- */
+/* ---------- 搜索主体包裹：padding 60 = 旧版 #form top:-10 的 10 + 原 padding 50 ---------- */
 #head_wrapper {
     position: relative;
     width: 100%;
     text-align: center;
-    padding-bottom: 50px;
+    padding-bottom: 60px;
 }
 
-/* ---------- Logo 区域 ---------- */
+/* ---------- Logo 区域：固定高度，Logo 底距搜索框顶 30px（复刻旧版） ---------- */
 #lg {
-    height: 24vh;
-    min-height: 185px;
-    max-height: 310px;
+    height: 115px;   /* Logo 85 + 间距 30 */
     position: relative;
     text-align: center;
-    top: -30px;
 }
 
 /* Logo 交叉叠化层 */
 .logo-layer {
     position: absolute;
-    bottom: 10px;
+    bottom: 30px;
     left: 50%;
     margin-left: -135px;
     width: 270px;
@@ -272,7 +269,6 @@ img {
     margin: 0 auto;
     padding: 0;
     width: 800px;
-    top: -10px;
 }
 
 .s_form_wrapper {
@@ -503,7 +499,7 @@ img {
 /* ---------- 我的导航 ---------- */
 #s-nav-wrapper {
     position: relative;
-    width: 780px;
+    width: 800px;   /* 与搜索框等宽对齐 */
     margin: 14px auto 0;
 }
 
@@ -513,34 +509,22 @@ img {
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
     border-radius: 18px;
-    padding: 0 24px 36px;
+    padding: 0 24px;
     box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.45);
-    height: 260px;
+    height: 240px;
 }
 
-/* 标题栏 */
-.site-card-header {
-    height: 46px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.site-card-title {
-    font-size: 16px;
-    color: transparent;
-    text-shadow: 0 0 0 #222;
-    font-weight: 600;
-    padding-top: 5px;
-}
-
-/* BGM 播放控制栏 */
+/* BGM 播放控制栏：位于底部句子正上方、与句子居中绑定；绝对定位不影响布局 */
 .bgm-controls {
+    position: absolute;
+    bottom: 100%;        /* 底边贴 foot 内容区顶 */
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: -15px;
+    z-index: 5;
     display: flex;
     align-items: center;
     gap: 1px;
-    margin-left: auto;
-    margin-top: 5px;
 }
 
 .bgm-btn {
@@ -569,13 +553,22 @@ img {
     display: none;
     position: fixed;
     width: 270px;
-    height: 260px;
+    height: 240px;
     overflow: hidden;
     z-index: 9999;
     background: rgba(255, 255, 255, 0.60);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
     border-radius: 18px;
+    /* 抽屉：默认藏在左侧、略透明；.open 向右拉出 */
+    opacity: 0;
+    transform: translateX(-12px);
+    transition: opacity .45s ease, transform .45s ease;
+}
+
+.bgm-playlist-panel.open {
+    opacity: 1;
+    transform: translateX(0);
 }
 
 /* 内层滚动容器 — 隐藏滚动条滑块 */
@@ -591,17 +584,20 @@ img {
 
 /* 播放列表项 — 固定宽度 + 溢出隐藏，hover 时 marquee 滚动 */
 .bgm-playlist-item {
-    display: block;
-    text-align: center;
-    padding: 5px 20px;
-    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;            /* 240÷30 = 正好 8 行 */
+    padding: 0 20px;
+    font-size: 13px;         /* 字号不变 */
     color: #444;
     white-space: nowrap;
     cursor: pointer;
     user-select: none;
     border-radius: 0;
-    line-height: 1.45;
+    line-height: 1;
     width: 100%;
+    box-sizing: border-box;
 }
 
 /* 歌名内联 span — 用于 marquee 动画 */
@@ -641,21 +637,25 @@ img {
 
 /* hover 和 current 在隔行之上叠加，不受条纹影响（靠权重自动覆盖） */
 
-/* 站点网格容器 - Grid锁定7列2行 */
+/* 站点网格容器 - Grid 7列2行；行高 auto，gap 即真实排距，整体在卡片中垂直居中 */
 .site-pills {
     display: grid;
     grid-template-columns: repeat(7, 80px);
-    gap: 16px 28px;
+    grid-template-rows: repeat(2, auto);
+    gap: 18px 28px;    /* 两排真实排距 */
     justify-content: center;
-    padding-top: 7px;
+    align-content: center;
+    height: 100%;
+    box-sizing: border-box;
 }
 
-/* 单个站点项：圆形图标在上 + 名称在下 */
+/* 单个站点项：圆形图标在上 + 名称在下；在 1fr 行格内垂直居中 */
 .site-pill {
     display: inline-flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    align-self: center;
     width: 80px;
     height: 84px;
     padding: 6px 4px;
@@ -667,8 +667,13 @@ img {
     box-sizing: border-box;
 }
 
+/* hover：无矩形底色；图标与名称各自独立投影（垂直顶光、大范围） */
 .site-pill:hover {
-    background: rgba(0, 0, 0, 0.04);
+    background: transparent;
+}
+.site-pill:hover .site-pill-icon,
+.site-pill:hover .site-pill-name {
+    filter: drop-shadow(0 0 12px rgba(0, 0, 0, 0.28));
 }
 
 .site-pill:hover .site-pill-name {
@@ -719,26 +724,21 @@ img {
     display: none;
 }
 
-/* ---------- 底部信息 ---------- */
+/* ---------- 底部信息：fixed 贴底，bottom:-10 等价旧版 relative top:10（文字距底 10px） ---------- */
 #foot {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: -10px;
     text-align: center;
     padding: 20px 0;
     color: rgba(0, 0, 0, 0.8);
     font-size: 15px;
-    position: relative;
-    top: 10px;
 }
 
 /* ========================================
    响应式适配
    ======================================== */
-
-/* 大屏幕优化 */
-@media screen and (min-width: 1920px) {
-    #lg {
-        max-height: 350px;
-    }
-}
 
 /* 小屏幕简化 */
 @media screen and (max-width: 1100px) {
@@ -766,23 +766,6 @@ img {
     }
     #wrapper::before {
         display: none;
-    }
-
-    /* ---------- 头部重置（顶栏隐藏后不需要留空间，取消垂直偏移） ---------- */
-    #head {
-        padding-top: 0;
-        margin-top: 0;
-    }
-
-    /* ---------- Logo 缩小 ---------- */
-    #lg {
-        height: auto;
-        min-height: 0;
-    }
-    .logo-layer {
-        width: 270px;
-        height: 85px;
-        margin-left: -135px;
     }
 
     /* ---------- 搜索框自适应宽度 ---------- */
@@ -830,20 +813,6 @@ img {
     }
 }
 
-/* 高分辨率大屏（4K 150% 等，CSS像素高度 ≥ 1200px）向上偏移（仅桌面端） */
-@media screen and (min-height: 1200px) and (min-width: 769px) {
-    #head {
-        margin-top: -180px;
-    }
-}
-
-/* 小屏幕高度（≤810px）减少上移量，避免内容偏上（仅桌面端） */
-@media screen and (max-height: 810px) and (min-width: 769px) {
-    #head {
-        margin-top: -30px;
-    }
-}
-
 /* 暗色模式基础支持 */
 @media (prefers-color-scheme: dark) {
     /* 暂不强制切换，保持皮肤效果 */
@@ -859,6 +828,14 @@ img {
     height: 28px;
     z-index: 2;
     border-radius: 4px;
+}
+
+/* 拖拽悬停：SVG 图标变红色；移开/放下后 JS 移除 class 复原 */
+.search-left-icon-wrapper.drag-over .search-left-icon {
+    filter: none;
+}
+.search-left-icon-wrapper.drag-over .search-left-icon-label {
+    filter: sepia(1) saturate(12) hue-rotate(-45deg);
 }
 
 /* file input 由浏览器原生 label[for] 机制激活，display:none 安全 */
@@ -956,4 +933,167 @@ img {
 }
 #logo-sample-outline.debug-active #logo-sample-refresh-btn {
     display: block;
+}
+
+/* ========================================
+   右下角 trivia 卡片（真·剪切蒙版）
+   - inner：背景取景框，60×60 → 300×H，1s
+   - content：钉死在最终位置、排版全程不变，用 clip-path 只在取景框内显示
+   - 鼠标中途来回：transition 从当前帧立即转向目标状态
+   ======================================== */
+
+/* 注册可过渡的高度变量：JS 写入目标值，--h 在 1s 内平滑变化，
+   使文字层高度、clip 裁切区逐帧跟随 inner，进出严格 1:1 */
+@property --h {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 60px;
+}
+
+/* 透明热区：5×5 图标网格（300×300），图标在中心格。
+   --h：当前高度（JS 写入 60 或测量值），供 content 高度与 clip 计算 */
+.corner-card-outer {
+    --h: 60px;
+    position: fixed;
+    right: -96px;
+    bottom: -96px;
+    width: 300px;
+    height: 300px;
+    z-index: 9998;
+}
+
+/* 背景取景框：left/bottom 锚定，右/底边永远重合 → Q 图标不动 */
+.corner-card-inner {
+    position: absolute;
+    left: 120px;
+    bottom: 120px;
+    width: 60px;
+    height: 60px;
+    background-color: rgba(34, 34, 34, .9);
+    border-radius: 6px;
+    opacity: 0;
+    box-sizing: border-box;
+    transition: all .6s ease;
+    outline: none;
+}
+
+/* 阶段2：移入热区 → 半透明小 Q */
+.corner-card-outer:hover .corner-card-inner {
+    opacity: .6;
+}
+
+/* 阶段3：hover 取景框 / 键盘聚焦 / hover 正文链接 → 展开。
+   宽高同一套纯 CSS 机制（--h 为初始化量好的固定值），怎么进就怎么出 */
+.corner-card-outer .corner-card-inner:hover,
+.corner-card-outer .corner-card-inner:focus,
+.corner-card-outer .corner-card-inner:focus-within,
+.corner-card-outer:has(.corner-card-body:hover) .corner-card-inner {
+    opacity: .9;
+    left: -120px;
+    width: 300px;
+    height: var(--h);
+}
+
+/* 文字层：inner 的兄弟，钉死在展开后的最终位置（left:-120/bottom:120），
+   排版全程不变；pointer-events:none 让鼠标始终作用于 inner。
+   clip-path 即剪切蒙版：
+   - 收起：只留右下角 60×60（左裁 240、上裁 H−60）
+   - 展开：inset(0) 全部显示
+   与 inner 同 .6s ease，取景区域逐帧重合 */
+.corner-card-content {
+    position: absolute;
+    left: -120px;
+    bottom: 120px;
+    width: 300px;
+    /* 盒子高度严格等于面板高度（JS 写入 --h），文字从顶部 18px 起排不下沉 */
+    height: var(--h);
+    padding: 18px 24px 56px;
+    box-sizing: border-box;
+    /* 移出 inner 后不再继承其 left，显式左对齐三行文字 */
+    text-align: left;
+    pointer-events: none;
+    opacity: 0;
+    clip-path: inset(calc(var(--h) - 60px) 0 0 240px);
+    transition: clip-path .6s ease, opacity .12s ease;
+}
+
+/* 标题：18px 雅黑 Regular */
+.corner-card-title {
+    color: #fff;
+    font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 1;
+}
+
+/* 分隔线：252×1 纯白，上下各 12px */
+.corner-card-divider {
+    height: 1px;
+    margin: 12px 0;
+    background-color: #fff;
+}
+
+/* 正文链接：24px 雅黑 Light；上下 -4.8 抵消行盒半行距，
+   使分割线→正文、正文→版权视觉间距精确为 12 / 18。
+   块级 + 恢复点击（content 整体 pointer-events:none）；hover/focus 显示下划线 */
+.corner-card-body {
+    display: block;
+    margin: -4.8px 0;
+    color: #ddd;
+    font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+    font-size: 24px;
+    font-weight: 300;
+    line-height: 1.4;
+    text-decoration: none;
+    pointer-events: auto;
+}
+
+/* 锁定各状态颜色，避免 hover/visited 时浏览器默认蓝紫盖过 #ddd */
+.corner-card-body:visited {
+    color: #ddd;
+}
+
+.corner-card-body:hover,
+.corner-card-body:focus {
+    color: #ddd;
+    text-decoration: underline;
+}
+
+/* 版权行：12px 雅黑 Light */
+.corner-card-credit {
+    margin-top: 18px;
+    color: #999;
+    font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+    font-size: 12px;
+    font-weight: 300;
+    line-height: 1;
+}
+
+/* Q 图标：锚定 inner 右下角，inner 右/底边收起与展开重合 → 坐标不变 */
+.corner-card-icon {
+    position: absolute;
+    right: 10.8px;
+    bottom: 10.8px;
+    width: 38.4px;
+    height: 38.4px;
+    display: block;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+}
+
+/* 展开时文字淡入：面板先长 .3s，随后 .6s 淡入（与蒙版揭示叠加） */
+.corner-card-outer:has(.corner-card-inner:hover) .corner-card-content,
+.corner-card-outer:has(.corner-card-inner:focus) .corner-card-content,
+.corner-card-outer:has(.corner-card-inner:focus-within) .corner-card-content,
+.corner-card-outer:has(.corner-card-body:hover) .corner-card-content {
+    opacity: 1;
+    clip-path: inset(0);
+    transition: clip-path .6s ease, opacity .36s ease .18s;
+}
+
+/* 手机端不显示 */
+@media (max-width: 768px) {
+    .corner-card-outer {
+        display: none;
+    }
 }
