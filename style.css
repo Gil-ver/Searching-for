@@ -1017,20 +1017,20 @@ img {
     transition: clip-path .45s ease, opacity .12s ease;
 }
 
-/* 标题：18px 雅黑 Light（与正文同字体） */
+/* 标题：18px 雅黑 Light（与正文同字体），颜色与正文一致（#ddd） */
 .corner-card-title {
-    color: #fff;
+    color: #ddd;
     font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
     font-size: 18px;
     font-weight: 300;
     line-height: 1;
 }
 
-/* 分隔线：252×1 纯白，上下各 12px */
+/* 分隔线：252×1，颜色与标题/正文一致（#ddd），上下各 12px */
 .corner-card-divider {
     height: 1px;
     margin: 12px 0;
-    background-color: #fff;
+    background-color: #ddd;
 }
 
 /* 正文链接：24px 雅黑 Light；上下 -4.8 抵消行盒半行距，
