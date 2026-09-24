@@ -973,7 +973,7 @@ img {
     border-radius: 6px;
     opacity: 0;
     box-sizing: border-box;
-    transition: all .6s ease;
+    transition: all .45s ease;
     outline: none;
 }
 
@@ -999,30 +999,30 @@ img {
    clip-path 即剪切蒙版：
    - 收起：只留右下角 60×60（左裁 240、上裁 H−60）
    - 展开：inset(0) 全部显示
-   与 inner 同 .6s ease，取景区域逐帧重合 */
+   与 inner 同 .45s ease，取景区域逐帧重合 */
 .corner-card-content {
     position: absolute;
     left: -120px;
     bottom: 120px;
     width: 300px;
-    /* 盒子高度严格等于面板高度（JS 写入 --h），文字从顶部 18px 起排不下沉 */
+    /* 盒子高度严格等于面板高度（JS 写入 --h），文字从顶部 24px 起排不下沉 */
     height: var(--h);
-    padding: 18px 24px 56px;
+    padding: 24px 24px 56px;
     box-sizing: border-box;
     /* 移出 inner 后不再继承其 left，显式左对齐三行文字 */
     text-align: left;
     pointer-events: none;
     opacity: 0;
     clip-path: inset(calc(var(--h) - 60px) 0 0 240px);
-    transition: clip-path .6s ease, opacity .12s ease;
+    transition: clip-path .45s ease, opacity .12s ease;
 }
 
-/* 标题：18px 雅黑 Regular */
+/* 标题：18px 雅黑 Light（与正文同字体） */
 .corner-card-title {
     color: #fff;
     font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
     font-size: 18px;
-    font-weight: 400;
+    font-weight: 300;
     line-height: 1;
 }
 
@@ -1081,14 +1081,14 @@ img {
     filter: brightness(0) invert(1);
 }
 
-/* 展开时文字淡入：面板先长 .3s，随后 .6s 淡入（与蒙版揭示叠加） */
+/* 展开时文字淡入：面板先长 .3s，随后 .36s 淡入（与蒙版揭示叠加） */
 .corner-card-outer:has(.corner-card-inner:hover) .corner-card-content,
 .corner-card-outer:has(.corner-card-inner:focus) .corner-card-content,
 .corner-card-outer:has(.corner-card-inner:focus-within) .corner-card-content,
 .corner-card-outer:has(.corner-card-body:hover) .corner-card-content {
     opacity: 1;
     clip-path: inset(0);
-    transition: clip-path .6s ease, opacity .36s ease .18s;
+    transition: clip-path .45s ease, opacity .36s ease .18s;
 }
 
 /* 手机端不显示 */
