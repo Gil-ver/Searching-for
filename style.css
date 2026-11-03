@@ -62,7 +62,7 @@ img {
     top: -6px;
     z-index: 100;
     height: 60px;
-    padding-left: 24px;
+    padding-left: 30px;
     display: flex;
     align-items: center;
 }
@@ -115,22 +115,71 @@ img {
 }
 
 .top-nav-dropdown-menu {
-    display: none;
+    visibility: hidden;
+    opacity: 0;
     position: absolute;
     top: calc(100% + 18px);
     left: 50%;
     transform: translateX(-50%);
     padding: 4px 0;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
     border-radius: 8px;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
     z-index: 200;
+    pointer-events: none;
+    transition: opacity .14s ease, visibility .14s;
 }
 
-.top-nav-dropdown:hover .top-nav-dropdown-menu {
-    display: block;
+/* 纯色背景层：打开时由 translateY(-100%) 滑到 0，视觉上框向下延展 */
+.top-nav-dropdown-menu::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    transform: translateY(0);
+    z-index: -1;
+    pointer-events: none;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+:is(.top-nav-dropdown:hover, .top-nav-dropdown:focus-within) .top-nav-dropdown-menu {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    transition: opacity 0s, visibility 0s;
+}
+
+:is(.top-nav-dropdown:hover, .top-nav-dropdown:focus-within) .top-nav-dropdown-menu::before {
+    animation: navPanelExtend .18s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+:is(.top-nav-dropdown:hover, .top-nav-dropdown:focus-within) .top-nav-dropdown-menu a {
+    animation: navItemIn .16s ease both;
+}
+:is(.top-nav-dropdown:hover, .top-nav-dropdown:focus-within) .top-nav-dropdown-menu a:nth-child(1) { animation-delay: .04s; }
+:is(.top-nav-dropdown:hover, .top-nav-dropdown:focus-within) .top-nav-dropdown-menu a:nth-child(2) { animation-delay: .075s; }
+:is(.top-nav-dropdown:hover, .top-nav-dropdown:focus-within) .top-nav-dropdown-menu a:nth-child(3) { animation-delay: .11s; }
+:is(.top-nav-dropdown:hover, .top-nav-dropdown:focus-within) .top-nav-dropdown-menu a:nth-child(4) { animation-delay: .145s; }
+:is(.top-nav-dropdown:hover, .top-nav-dropdown:focus-within) .top-nav-dropdown-menu a:nth-child(5) { animation-delay: .18s; }
+:is(.top-nav-dropdown:hover, .top-nav-dropdown:focus-within) .top-nav-dropdown-menu a:nth-child(6) { animation-delay: .215s; }
+
+@keyframes navPanelExtend {
+    from { transform: translateY(-100%); }
+    to   { transform: translateY(0); }
+}
+
+@keyframes navItemIn {
+    from { opacity: 0; transform: translateX(-6px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+.nav-chevron {
+    display: inline-block;
+    transition: transform .18s ease;
+}
+
+.top-nav-dropdown:hover .nav-chevron,
+.top-nav-dropdown:focus-within .nav-chevron {
+    transform: rotate(180deg);
 }
 
 .top-nav-dropdown-menu a {
@@ -155,7 +204,7 @@ img {
     top: -6px;
     z-index: 100;
     height: 60px;
-    padding-right: 24px;
+    padding-right: 30px;
     display: flex;
     align-items: center;
 }
@@ -190,6 +239,153 @@ img {
     font-weight: 400;
 }
 
+/* 天气详情弹窗 */
+.weather-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.weather-popup {
+    position: absolute;
+    top: 100%;
+    right: -6px;               /* 文字右移 6px 后，卡片仍保持在视口右侧 24px */
+    width: 360px;
+    padding-top: 16px;         /* 与左侧下拉对齐：卡片顶边约 51.5px，顶栏下方 3.5px */
+    z-index: 300;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .14s ease, visibility .14s;
+    pointer-events: none;
+}
+
+.weather-box:hover .weather-popup,
+.weather-box:focus-within .weather-popup {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity 0s, visibility 0s;
+}
+
+/* 面板延展 + 整体渐显（与左侧下拉同节奏，文字不做位移） */
+:is(.weather-box:hover, .weather-box:focus-within) .weather-card::before {
+    animation: navPanelExtend .18s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+:is(.weather-box:hover, .weather-box:focus-within) .weather-card-head,
+:is(.weather-box:hover, .weather-box:focus-within) .weather-card-days,
+:is(.weather-box:hover, .weather-box:focus-within) .weather-card-foot {
+    animation: weatherFadeIn .16s ease both;
+}
+
+@keyframes weatherFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.weather-card {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border-radius: 8px;
+    padding: 14px 16px 12px;
+    color: rgba(255, 255, 255, 0.85);
+    font-family: Arial, "Microsoft YaHei", "微软雅黑", sans-serif;
+    text-align: left;
+}
+
+/* 纯色背景层：打开时由 translateY(-100%) 滑到 0，视觉上框向下延展 */
+.weather-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    transform: translateY(0);
+    z-index: -1;
+    pointer-events: none;
+}
+
+.weather-card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.weather-card-date {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.weather-card-title {
+    font-size: 12px;
+    color: #9195a3;
+}
+
+.weather-card-days {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.weather-day {
+    text-align: center;
+}
+
+.weather-day-label {
+    font-size: 12px;
+    color: #b8bcc7;
+    margin-bottom: 8px;
+}
+
+.weather-day-icon-box {
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 6px;
+}
+
+.weather-day-icon {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+    display: block;
+}
+
+.weather-day-temp {
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 6px;
+}
+
+.weather-day-text {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.85);
+    margin-bottom: 4px;
+}
+
+.weather-day-wind {
+    font-size: 11px;
+    color: #9195a3;
+}
+
+.weather-card-foot {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 11px;
+    color: #9195a3;
+    text-align: center;
+}
+
+.weather-card-foot:empty {
+    display: none;
+}
+
 /* ---------- 主包裹 ---------- */
 #wrapper {
     position: relative;
@@ -209,6 +405,8 @@ img {
     width: 100%;
     height: 48px;
     background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
     z-index: -1;
     pointer-events: none;
 }
@@ -364,6 +562,7 @@ img {
     -webkit-appearance: none;
     font-family: Arial, "Microsoft YaHei", sans-serif;
     line-height: 44px;
+    transition: border-color .15s ease, box-shadow .15s ease;
 }
 
 /* 输入文字时：用底部 padding 把文字向上挤压 2px */
@@ -373,6 +572,7 @@ img {
 
 #kw:focus {
     border-color: #4e6ef2 !important;
+    box-shadow: 0 0 0 3px rgba(78, 110, 242, 0.15);
 }
 
 #kw::placeholder {
@@ -418,6 +618,10 @@ img {
 .search-engine-btn:hover {
     opacity: 0.8;
     transform: scale(1.1);
+}
+
+.search-engine-btn:active {
+    transform: scale(0.95);
 }
 
 .search-engine-btn img {
@@ -496,6 +700,22 @@ img {
     color: #1a1a1a;
 }
 
+/* 本地搜索历史：清除按钮（历史项复用 .suggest-item 样式） */
+.suggest-clear {
+    padding: 8px 20px;
+    font-size: 13px;
+    color: #9195a3;
+    text-align: right;
+    cursor: pointer;
+    border-top: 1px solid #eee;
+    user-select: none;
+}
+
+.suggest-clear:hover {
+    color: #d93025;
+    background: #fafafa;
+}
+
 /* ---------- 我的导航 ---------- */
 #s-nav-wrapper {
     position: relative;
@@ -560,26 +780,107 @@ img {
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
     border-radius: 18px;
-    /* 抽屉：默认藏在左侧、略透明；.open 向右拉出 */
+    /* 与左上角下拉一致：用 clip-path 自上而下展开，关闭整体淡出 */
     opacity: 0;
-    transform: translateX(-12px);
-    transition: opacity .45s ease, transform .45s ease;
+    visibility: hidden;
+    clip-path: inset(0 0 0 0 round 18px);
+    transition: opacity .14s ease, visibility .14s;
 }
 
 .bgm-playlist-panel.open {
     opacity: 1;
-    transform: translateX(0);
+    visibility: visible;
+    transition: opacity 0s, visibility 0s;
+    animation: bgmPanelReveal .18s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+@keyframes bgmPanelReveal {
+    from { clip-path: inset(0 0 100% 0 round 18px); }
+    to   { clip-path: inset(0 0 0 0 round 18px); }
+}
+
+.bgm-playlist-item.reveal {
+    animation: bgmPlaylistRowIn .16s ease both;
+    animation-delay: var(--d, 0s);
+}
+
+.bgm-playlist-item.reveal > span {
+    animation: bgmPlaylistItemIn .16s ease both;
+    animation-delay: var(--d, 0s);
+}
+
+@keyframes bgmPlaylistRowIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes bgmPlaylistItemIn {
+    from { opacity: 0; transform: translateX(-6px); }
+    to   { opacity: 1; transform: translateX(0); }
 }
 
 /* 内层滚动容器 — 隐藏滚动条滑块 */
 .bgm-playlist-inner {
+    position: relative;
     height: 100%;
     overflow-y: auto;
+    border-radius: 18px;
     scrollbar-width: none;           /* Firefox */
     -ms-overflow-style: none;        /* IE/Edge */
 }
 .bgm-playlist-inner::-webkit-scrollbar {
     display: none;                   /* Chrome/Safari */
+}
+
+/* ============================================================
+   音频点阵可视化（复刻壁纸：白色方格，按列显示频谱柱高）
+   s = innerHeight / 2160；格子 18s、间距 18s、带高 420s
+   ============================================================ */
+#visualizer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(420px * var(--viz-s, .5));
+    z-index: 0;                      /* #wrapper 同为 0 且在 DOM 之后 → 内容/页脚在其上 */
+    pointer-events: none;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity .45s ease;
+    --viz-color: #ffffff;
+    --viz-s: .5;
+}
+
+#visualizer.visible {
+    opacity: 1;
+}
+
+#visualizer-grid {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.viz-cell {
+    position: absolute;
+    width: calc(18px * var(--viz-s, .5));
+    height: calc(18px * var(--viz-s, .5));
+    background-color: var(--viz-color, #ffffff);
+    opacity: 0;
+    will-change: opacity;
+}
+
+@keyframes vizFallback {
+    from { opacity: .15; }
+    to   { opacity: 1; }
+}
+
+#visualizer.fallback .viz-cell {
+    animation: vizFallback .9s ease-in-out infinite alternate;
+}
+
+@media screen and (max-width: 768px) {
+    #visualizer { display: none; }
 }
 
 /* 播放列表项 — 固定宽度 + 溢出隐藏，hover 时 marquee 滚动 */
@@ -690,6 +991,12 @@ img {
     flex-shrink: 0;
     object-fit: contain;
     margin: 0 auto 8px;
+    transition: transform .15s ease, filter .3s ease;
+}
+
+/* 按压回弹（排除自带旋转动画的网易云图标） */
+.site-pill:active .site-pill-icon:not(.bgm-spin-icon) {
+    transform: scale(0.92);
 }
 
 /* 网易云音乐图标旋转动画 */
@@ -717,6 +1024,7 @@ img {
     max-width: 72px;
     line-height: 1.2;
     text-align: center;
+    transition: filter .3s ease, color .3s ease;
 }
 
 /* 隐藏旧的底部链接 */
@@ -757,14 +1065,31 @@ img {
         min-width: auto;
     }
 
-    /* ---------- 隐藏：顶部导航 / 天气 / 顶栏底色 / 导航卡片 / 以图搜图 ---------- */
+    /* ---------- 隐藏：顶部导航 / 顶栏底色 / 导航卡片 / 以图搜图（天气保留） ---------- */
     .top-nav,
-    .top-nav-right,
     #s-nav-wrapper,
     .search-left-icon-wrapper {
         display: none;
     }
     #wrapper::before {
+        display: none;
+    }
+
+    /* 天气在手机端单独居中保留 */
+    .top-nav-right {
+        left: 50%;
+        right: auto;
+        top: 10px;
+        transform: translateX(-50%);
+        padding: 0;
+        height: auto;
+        justify-content: center;
+    }
+    .weather-wrapper {
+        font-size: 13px;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+    }
+    .weather-popup {
         display: none;
     }
 
@@ -785,6 +1110,9 @@ img {
     }
     .suggest-item-icon {
         display: none;
+    }
+    .suggest-clear {
+        padding-left: 14px;
     }
     #kw {
         padding: 0 110px 0 14px;
@@ -836,6 +1164,13 @@ img {
 }
 .search-left-icon-wrapper.drag-over .search-left-icon-label {
     filter: sepia(1) saturate(12) hue-rotate(-45deg);
+}
+
+/* 拖拽文件进入整个搜索条时：输入框描边高亮 */
+.s_form_wrapper.drag-over #kw {
+    border-color: #315efb;
+    box-shadow: 0 0 0 3px rgba(49, 94, 251, 0.25);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 /* file input 由浏览器原生 label[for] 机制激活，display:none 安全 */

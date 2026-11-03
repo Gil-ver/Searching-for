@@ -13,6 +13,9 @@
     <!-- 皮肤背景层 -->
     <div id="skin-bg"></div>
 
+    <!-- 音频点阵可视化（随 BGM 播放跳动，手机端隐藏） -->
+    <div id="visualizer" aria-hidden="true"><div id="visualizer-grid"></div></div>
+
     <!-- 整体包裹 -->
     <div id="wrapper">
         <!-- 头部区域 -->
@@ -22,7 +25,7 @@
                 <a href="https://map.baidu.com/" target="_blank">地图</a>
                 <a href="https://tieba.baidu.com/" target="_blank">贴吧</a>
                 <div class="top-nav-dropdown">
-                    <span class="top-nav-trigger">网盘 ▾</span>
+                    <span class="top-nav-trigger">网盘 <span class="nav-chevron">▾</span></span>
                     <div class="top-nav-dropdown-menu">
                         <a href="https://pan.baidu.com/" target="_blank">百度网盘</a>
                         <a href="https://pan.quark.cn/" target="_blank">夸克网盘</a>
@@ -33,7 +36,7 @@
                     </div>
                 </div>
                 <div class="top-nav-dropdown">
-                    <span class="top-nav-trigger">图片 ▾</span>
+                    <span class="top-nav-trigger">图片 <span class="nav-chevron">▾</span></span>
                     <div class="top-nav-dropdown-menu">
                         <a href="https://image.baidu.com/" target="_blank">百度图片</a>
                         <a href="https://www.bing.com/images" target="_blank">必应图片</a>
@@ -43,7 +46,7 @@
                     </div>
                 </div>
                 <div class="top-nav-dropdown">
-                    <span class="top-nav-trigger">翻译 ▾</span>
+                    <span class="top-nav-trigger">翻译 <span class="nav-chevron">▾</span></span>
                     <div class="top-nav-dropdown-menu">
                         <a href="https://fanyi.sogou.com/" target="_blank">搜狗翻译</a>
                         <a href="https://www.bing.com/translator" target="_blank">必应翻译</a>
@@ -51,7 +54,7 @@
                     </div>
                 </div>
                 <div class="top-nav-dropdown">
-                    <span class="top-nav-trigger"><span class="intelligence-emoji">✨️</span>Intelligence ▾</span>
+                    <span class="top-nav-trigger"><span class="intelligence-emoji">✨️</span>Intelligence <span class="nav-chevron">▾</span></span>
                     <div class="top-nav-dropdown-menu">
                         <a href="https://gemini.google.com/" target="_blank">Gemini</a>
                         <a href="https://claude.ai/new" target="_blank">Claude</a>
@@ -64,11 +67,23 @@
                 </div>
             </div>
             <div id="s-top-right" class="top-nav-right">
-                <a class="weather-wrapper" href="https://www.weatherapi.com/weather/" target="_blank">
-                    <span class="weather-location">加载中...</span>
-                    <span class="weather-emoji"></span>
-                    <span class="weather-temp"></span>
-                </a>
+                <div class="weather-box" id="weather-box">
+                    <a class="weather-wrapper" href="https://www.weatherapi.com/weather/" target="_blank">
+                        <span class="weather-location">加载中...</span>
+                        <span class="weather-emoji"></span>
+                        <span class="weather-temp"></span>
+                    </a>
+                    <div class="weather-popup" id="weather-popup" aria-hidden="true">
+                        <div class="weather-card">
+                            <div class="weather-card-head">
+                                <span class="weather-card-date"></span>
+                                <span class="weather-card-title">未来三天天气</span>
+                            </div>
+                            <div class="weather-card-days"></div>
+                            <div class="weather-card-foot"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- 主要内容区 -->
@@ -286,29 +301,15 @@
             var tempEl = document.querySelector('.weather-temp');
             if (locEl) locEl.textContent = city;
             if (emojiEl) emojiEl.textContent = weatherEmoji(iconCode);
-            if (tempEl) tempEl.textContent = temp + '°C';
+            if (tempEl) tempEl.textContent = (temp === '' || temp === null || typeof temp === 'undefined') ? '' : temp + '°C';
         }
 
-        var CACHE_KEY = 'weather_cache';
+        var CACHE_KEY = 'weather_cache_v3';
         var CACHE_TTL = 30 * 60 * 1000; /* 30分钟 */
 
         function fallback() {
             updateWeather('天气', '', '');
         }
-
-        /* 检查 localStorage 缓存，有效则直接使用 */
-        (function() {
-            var cached;
-            try { cached = JSON.parse(localStorage.getItem(CACHE_KEY)); } catch(e) {}
-            if (cached && cached.city && cached.time) {
-                var age = Date.now() - cached.time;
-                if (age < CACHE_TTL) {
-                    updateWeather(cached.city, cached.icon, cached.temp);
-                    return;
-                }
-            }
-            fetchWeather();
-        })();
 
         /* WeatherAPI 英文/拼音城市名 → 中文映射 */
         function toChineseCity(name) {
@@ -328,39 +329,206 @@
                 'Foshan': '佛山', 'Hohhot': '呼和浩特', 'Hong Kong': '香港',
                 'Macau': '澳门', 'Macao': '澳门', 'Taibei': '台北',
                 'Taipei': '台北', 'Lhasa': '拉萨', 'Yinchuan': '银川',
-                'Xining': '西宁', 'Nanchang': '南昌', 'Nanning': '南宁',
-                'Guiyang': '贵阳', 'Haikou': '海口', 'Hefei': '合肥'
+                'Xining': '西宁', 'Nanchang': '南昌'
             };
             return map[name] || name;
         }
 
+        /* ---- 16 方位 → 中文风向 ---- */
+        var WIND_CN = {
+            N: '北风', NNE: '东北风', NE: '东北风', ENE: '东风',
+            E: '东风', ESE: '东风', SE: '东南风', SSE: '东南风',
+            S: '南风', SSW: '南风', SW: '西南风', WSW: '西南风',
+            W: '西风', WNW: '西风', NW: '西北风', NNW: '西北风'
+        };
+
+        /* ---- 风速 km/h → 蒲福风级 ---- */
+        function beaufort(kph) {
+            kph = Number(kph) || 0;
+            if (kph < 1) return 0;
+            if (kph <= 5) return 1;
+            if (kph <= 11) return 2;
+            if (kph <= 19) return 3;
+            if (kph <= 28) return 4;
+            if (kph <= 38) return 5;
+            if (kph <= 49) return 6;
+            if (kph <= 61) return 7;
+            if (kph <= 74) return 8;
+            if (kph <= 88) return 9;
+            if (kph <= 102) return 10;
+            if (kph <= 117) return 11;
+            return 12;
+        }
+
+        /* ---- 12 小时制 → 24 小时制 ---- */
+        function to24h(str) {
+            if (!str) return '';
+            var m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(String(str).trim());
+            if (!m) return str;
+            var h = parseInt(m[1], 10);
+            var ap = m[3].toUpperCase();
+            if (ap === 'PM' && h !== 12) h += 12;
+            if (ap === 'AM' && h === 12) h = 0;
+            return (h < 10 ? '0' + h : h) + ':' + m[2];
+        }
+
+        var WEEK_CN = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+        function weekday(dateStr) {
+            var d = new Date(dateStr + 'T00:00:00');
+            return isNaN(d.getTime()) ? '' : WEEK_CN[d.getDay()];
+        }
+
+        /* ---- 当天天气文字：09:00 与 15:00 不同则做成「A转B」 ---- */
+        function dayConditionText(fd) {
+            var fallbackText = (fd.day && fd.day.condition && fd.day.condition.text) || '';
+            if (!fd.hour || !fd.hour.length) return fallbackText;
+            function textAt(h) {
+                for (var i = 0; i < fd.hour.length; i++) {
+                    var t = fd.hour[i].time || '';
+                    if (parseInt(t.slice(11, 13), 10) === h) {
+                        return (fd.hour[i].condition && fd.hour[i].condition.text) || '';
+                    }
+                }
+                return '';
+            }
+            var am = textAt(9), pm = textAt(15);
+            if (am && pm && am !== pm) return am + '转' + pm;
+            return fallbackText || am || pm;
+        }
+
+        /* ---- WeatherAPI 图标地址：协议相对 → https（本地 file:// 也能用） ---- */
+        function normalizeIcon(url) {
+            if (!url) return '';
+            return url.indexOf('//') === 0 ? 'https:' + url : url;
+        }
+
+        /* ---- 渲染弹窗 ---- */
+        function el(tag, cls, text) {            var n = document.createElement(tag);
+            if (cls) n.className = cls;
+            if (text !== undefined && text !== null) n.textContent = text;
+            return n;
+        }
+
+        function renderPopup(payload) {
+            var box = document.getElementById('weather-popup');
+            if (!box || !payload || !payload.days || !payload.days.length) return;
+
+            var dateEl = box.querySelector('.weather-card-date');
+            var daysEl = box.querySelector('.weather-card-days');
+            var footEl = box.querySelector('.weather-card-foot');
+            if (!dateEl || !daysEl || !footEl) return;
+
+            dateEl.textContent = payload.dateLabel || '';
+            daysEl.innerHTML = '';
+
+            payload.days.forEach(function(d) {
+                var col = el('div', 'weather-day');
+                col.appendChild(el('div', 'weather-day-label', d.label));
+
+                var iconBox = el('div', 'weather-day-icon-box');
+                var iconImg = document.createElement('img');
+                iconImg.className = 'weather-day-icon';
+                iconImg.src = d.icon || '';
+                iconImg.alt = d.text || '';
+                iconBox.appendChild(iconImg);
+                col.appendChild(iconBox);
+
+                col.appendChild(el('div', 'weather-day-temp', d.min + '° ~ ' + d.max + '°'));
+                col.appendChild(el('div', 'weather-day-text', d.text));
+                var wind = d.windDir ? (d.windDir + ' ' + d.windLevel + '级') : (d.windLevel + '级');
+                col.appendChild(el('div', 'weather-day-wind', wind));
+                daysEl.appendChild(col);
+            });
+
+            if (payload.astro && payload.astro.sunrise) {
+                footEl.textContent = '今日日出 ' + payload.astro.sunrise + ' · 日落 ' + payload.astro.sunset;
+            } else {
+                footEl.textContent = '';
+            }
+        }
+
+        function renderAll(payload) {
+            updateWeather(payload.city, payload.current.code, payload.current.temp);
+            renderPopup(payload);
+        }
+
+        /* ---- 解析接口返回 ---- */
+        function buildPayload(data) {
+            if (!data || !data.location || !data.current || !data.forecast || !data.forecast.forecastday) return null;
+
+            var rawName = data.location.name;
+            var city = toChineseCity(rawName);
+            if (city === rawName && data.location.region) city = toChineseCity(data.location.region);
+
+            var labels = ['今天', '明天', '后天'];
+            var days = data.forecast.forecastday.slice(0, 3).map(function(fd, i) {
+                var noon = (fd.hour && fd.hour[12]) ? fd.hour[12] : (fd.hour && fd.hour[0]);
+                return {
+                    label: (labels[i] || '') + ' ' + weekday(fd.date),
+                    code: fd.day.condition.code,
+                    icon: normalizeIcon(fd.day.condition.icon),
+                    min: Math.round(fd.day.mintemp_c),
+                    max: Math.round(fd.day.maxtemp_c),
+                    text: dayConditionText(fd),
+                    windDir: (noon && noon.wind_dir) ? (WIND_CN[noon.wind_dir] || '') : '',
+                    windLevel: beaufort(fd.day.maxwind_kph)
+                };
+            });
+
+            var astro = (data.forecast.forecastday[0] && data.forecast.forecastday[0].astro) || {};
+            var now = new Date();
+
+            return {
+                city: city,
+                current: {
+                    code: data.current.condition.code,
+                    temp: data.current.temp_c
+                },
+                days: days,
+                astro: {
+                    sunrise: to24h(astro.sunrise),
+                    sunset: to24h(astro.sunset)
+                },
+                dateLabel: (now.getMonth() + 1) + '月' + now.getDate() + '日 ' + WEEK_CN[now.getDay()],
+                time: Date.now()
+            };
+        }
+
+        /* ---- 缓存 ---- */
+        function readCache() {
+            try {
+                var c = JSON.parse(localStorage.getItem(CACHE_KEY));
+                if (c && c.time && (Date.now() - c.time) < CACHE_TTL && c.days && c.days.length) return c;
+            } catch (e) {}
+            return null;
+        }
+
+        function writeCache(payload) {
+            try { localStorage.setItem(CACHE_KEY, JSON.stringify(payload)); } catch (e) {}
+        }
+
+        /* ---- 请求 3 天预报 ---- */
         function fetchWeather() {
-            /* q=auto:ip 自动IP定位，一步到位（不加lang=zh，用英文城市名+映射表翻译） */
-            fetch('https://api.weatherapi.com/v1/current.json?key=' + API_KEY
-                + '&q=auto:ip')
+            fetch('https://api.weatherapi.com/v1/forecast.json?key=' + API_KEY
+                + '&q=auto:ip&days=3&lang=zh')
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
-                    if (data && data.current && data.location) {
-                        var rawName = data.location.name;
-                        var city = toChineseCity(rawName);
-                        /* name 未命中 → 回退 region（省/市名）；仍未命中则保留原文 */
-                        if (city === rawName && data.location.region) {
-                            city = toChineseCity(data.location.region);
-                        }
-                        var code = data.current.condition.code;
-                        var temp = data.current.temp_c;
-                        updateWeather(city, code, temp);
-                        localStorage.setItem(CACHE_KEY, JSON.stringify({
-                            city: city, icon: code, temp: temp,
-                            time: Date.now()
-                        }));
-                    } else {
-                        fallback();
-                    }
+                    var payload = buildPayload(data);
+                    if (!payload) { fallback(); return; }
+                    writeCache(payload);
+                    renderAll(payload);
                 })
                 .catch(function() {
                     fallback();
                 });
+        }
+
+        /* ---- 启动：优先缓存 ---- */
+        var cachedWeather = readCache();
+        if (cachedWeather) {
+            renderAll(cachedWeather);
+        } else {
+            fetchWeather();
         }
     })();
     </script>
@@ -638,33 +806,64 @@
             handleFile(file);
         });
 
-        /* ---- 拖拽文件到按钮：拖入变灰，放下等同点击上传 ---- */
+        /* ---- 拖拽文件到搜索条：拖入高亮，放下等同点击上传 ---- */
         (function() {
-            var dragDepth = 0;   // 计数器，避免子元素间移动导致灰态闪烁
+            var formWrapper = document.querySelector('.s_form_wrapper');
+            if (!formWrapper) return;
 
-            iconWrapper.addEventListener('dragenter', function(e) {
+            var dragDepth = 0;   // 计数器，避免子元素间移动导致高亮闪烁
+
+            function isFileDrag(e) {
+                var dt = e.dataTransfer;
+                if (!dt || !dt.types) return false;
+                for (var i = 0; i < dt.types.length; i++) {
+                    if (dt.types[i] === 'Files') return true;
+                }
+                return false;
+            }
+
+            function setDragState(on) {
+                if (on) {
+                    formWrapper.classList.add('drag-over');
+                    iconWrapper.classList.add('drag-over');
+                } else {
+                    formWrapper.classList.remove('drag-over');
+                    iconWrapper.classList.remove('drag-over');
+                }
+            }
+
+            formWrapper.addEventListener('dragenter', function(e) {
+                if (!isFileDrag(e)) return;
                 e.preventDefault();
-                if (dragDepth === 0) iconWrapper.classList.add('drag-over');
+                if (dragDepth === 0) setDragState(true);
                 dragDepth++;
             });
-            iconWrapper.addEventListener('dragover', function(e) {
+            formWrapper.addEventListener('dragover', function(e) {
+                if (!isFileDrag(e)) return;
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'copy';
             });
-            iconWrapper.addEventListener('dragleave', function(e) {
+            formWrapper.addEventListener('dragleave', function(e) {
+                if (dragDepth <= 0) return;
                 e.preventDefault();
                 dragDepth--;
-                if (dragDepth <= 0) {
-                    dragDepth = 0;
-                    iconWrapper.classList.remove('drag-over');
-                }
+                if (dragDepth === 0) setDragState(false);
             });
-            iconWrapper.addEventListener('drop', function(e) {
+            formWrapper.addEventListener('drop', function(e) {
+                if (!isFileDrag(e)) return;
                 e.preventDefault();
                 dragDepth = 0;
-                iconWrapper.classList.remove('drag-over');
-                var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+                setDragState(false);
+                var file = e.dataTransfer.files && e.dataTransfer.files[0];
                 handleFile(file);
+            });
+
+            // 全局兜底：文件拖到搜索条以外松手时不打开图片、不离开页面
+            window.addEventListener('dragover', function(e) {
+                if (isFileDrag(e)) e.preventDefault();
+            });
+            window.addEventListener('drop', function(e) {
+                if (isFileDrag(e)) e.preventDefault();
             });
         })();
 
@@ -731,7 +930,10 @@
 
             // 状态2/3：无图片 → 文字搜索 或 直跳首页
             var q = document.getElementById('kw').value.trim();
-            if (q) sessionStorage.setItem('lastSearch', q);
+            if (q) {
+                sessionStorage.setItem('lastSearch', q);
+                pushHistory(q);
+            }
 
             var urls = {
                 bing:   q ? 'https://www.bing.com/search?q='       + encodeURIComponent(q) : 'https://www.bing.com',
@@ -749,6 +951,7 @@
             var q = document.getElementById('kw').value.trim();
             if (q) {
                 sessionStorage.setItem('lastSearch', q);
+                pushHistory(q);
                 window.location.href = 'https://www.baidu.com/s?wd=' + encodeURIComponent(q);
             }
         });
@@ -759,6 +962,10 @@
         var suggestDebounce = null;
         var suggestActiveIdx = -1;    // 键盘当前高亮项索引，-1 = 无选中
         var suggestBlurTimer = null;  // blur 延迟隐藏定时器
+        var suggestUserInteracted = false; // 区分页面自动聚焦与用户主动聚焦
+
+        document.addEventListener('pointerdown', function() { suggestUserInteracted = true; }, true);
+        document.addEventListener('keydown', function() { suggestUserInteracted = true; }, true);
 
         function fetchSuggestions(query) {
             var script = document.createElement('script');
@@ -819,6 +1026,74 @@
             suggestActiveIdx = -1;
         }
 
+        /* ========== 本地搜索历史 ========== */
+        var HISTORY_KEY = 'searchHistoryV1';
+        var HISTORY_MAX = 8;
+
+        function readHistory() {
+            try {
+                var a = JSON.parse(localStorage.getItem(HISTORY_KEY));
+                return Array.isArray(a) ? a : [];
+            } catch (e) { return []; }
+        }
+
+        function writeHistory(list) {
+            try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); } catch (e) {}
+        }
+
+        function pushHistory(q) {
+            q = (q || '').trim();
+            if (!q) return;
+            var list = readHistory().filter(function(x) { return x !== q; });
+            list.unshift(q);
+            writeHistory(list.slice(0, HISTORY_MAX));
+        }
+
+        function renderHistory() {
+            var list = readHistory();
+            suggestBox.innerHTML = '';
+            if (list.length === 0) { hideSuggestions(); return; }
+
+            list.forEach(function(q) {
+                var item = document.createElement('div');
+                item.className = 'suggest-item';
+
+                var icon = document.createElement('img');
+                icon.className = 'suggest-item-icon';
+                icon.src = SUGGEST_ICON_SRC;
+                icon.alt = '';
+                item.appendChild(icon);
+
+                var textEl = document.createElement('span');
+                textEl.className = 'suggest-item-text';
+                textEl.textContent = q;
+                item.appendChild(textEl);
+
+                item.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    suggestInput.value = q;
+                    hideSuggestions();
+                    suggestInput.focus();
+                });
+                suggestBox.appendChild(item);
+            });
+
+            var clr = document.createElement('div');
+            clr.className = 'suggest-clear';
+            clr.textContent = '清除历史';
+            clr.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                writeHistory([]);
+                hideSuggestions();
+                suggestInput.focus();
+            });
+            suggestBox.appendChild(clr);
+
+            suggestActiveIdx = -1;
+            suggestBox.style.display = 'block';
+            suggestInput.classList.add('has-suggestions');
+        }
+
         function moveSuggestHighlight(direction) {
             var items = suggestBox.querySelectorAll('.suggest-item');
             if (items.length === 0) return;
@@ -846,7 +1121,7 @@
         suggestInput.addEventListener('input', function() {
             clearTimeout(suggestDebounce);
             var q = this.value.trim();
-            if (!q) { hideSuggestions(); return; }
+            if (!q) { renderHistory(); return; }
             suggestDebounce = setTimeout(function() { fetchSuggestions(q); }, 300);
         });
 
@@ -867,6 +1142,12 @@
             clearTimeout(suggestBlurTimer);
             var q = this.value.trim();
             if (q) fetchSuggestions(q);
+            else if (suggestUserInteracted) renderHistory();
+        });
+
+        // 输入框已处于自动聚焦状态时，用户再次点击也能唤出历史
+        suggestInput.addEventListener('mousedown', function() {
+            if (!suggestInput.value.trim()) renderHistory();
         });
 
         document.addEventListener('click', function(e) {
@@ -881,7 +1162,7 @@
     <script src="https://searching-for.pages.dev/index_files/music/_bgm_data.js"></script>
 
     <!-- 隐藏的 HTML5 音频播放器（本地 MP3） -->
-    <audio id="bgm-player" preload="auto" style="display:none;"></audio>
+    <audio id="bgm-player" preload="auto" crossorigin="anonymous" style="display:none;"></audio>
 
     <!-- BGM 播放列表浮层（position:fixed，脱离文档流，不影响页面布局） -->
     <div class="bgm-playlist-panel" id="bgm-playlist-panel" style="display:none;">
@@ -1290,6 +1571,32 @@
             }
         }
 
+        // 逐首歌名滑入：只处理当前可见行（约 8 行）
+        function animatePlaylistItems() {
+            var inner = document.getElementById('bgm-playlist-inner');
+            if (!inner) return;
+            var items = inner.querySelectorAll('.bgm-playlist-item');
+
+            // 重置，确保再次打开时动画重播
+            for (var i = 0; i < items.length; i++) {
+                items[i].classList.remove('reveal');
+                items[i].style.removeProperty('--d');
+            }
+            void inner.offsetWidth; // 强制重排
+
+            var top = inner.scrollTop;
+            var bottom = top + inner.clientHeight;
+            var k = 0;
+            for (var j = 0; j < items.length; j++) {
+                var it = items[j];
+                if (it.offsetTop + it.offsetHeight > top && it.offsetTop < bottom) {
+                    it.style.setProperty('--d', (0.04 + k * 0.035) + 's');
+                    it.classList.add('reveal');
+                    k++;
+                }
+            }
+        }
+
         // 定位播放列表到 .site-card 右边缘
         function positionPlaylistPanel() {
             var panel = document.getElementById('bgm-playlist-panel');
@@ -1308,13 +1615,13 @@
             }
         });
 
-        // 🎶 播放列表按钮：抽屉式拉出/推回 + 打开时自动滚到当前项 + 溢出检测
+        // 🎶 播放列表按钮：淡入 + 内容左滑渐显，关闭整体淡出 + 打开时自动滚到当前项 + 溢出检测
         document.getElementById('bgm-list-btn').addEventListener('click', function(e) {
             e.preventDefault();
             var panel = document.getElementById('bgm-playlist-panel');
             var isOpen = panel.classList.contains('open');
             if (!isOpen) {
-                /* 打开：先定位显示，下一帧加 .open 触发向右拉出 */
+                /* 打开：先定位显示，下一帧加 .open 触发淡入与内容滑入 */
                 positionPlaylistPanel();
                 panel.style.display = 'block';
                 requestAnimationFrame(function() {
@@ -1323,13 +1630,14 @@
                 setTimeout(function() {
                     detectPlaylistOverflow();
                     scrollPlaylistToCurrent();
+                    animatePlaylistItems();
                 }, 50);
             } else {
-                /* 关闭：先移除 .open 向左推回，过渡结束再 display:none */
+                /* 关闭：移除 .open 整体淡出，过渡结束再 display:none */
                 panel.classList.remove('open');
                 setTimeout(function() {
                     if (!panel.classList.contains('open')) panel.style.display = 'none';
-                }, 460);
+                }, 170);
             }
         });
 
@@ -1534,6 +1842,248 @@
         var H = Math.max(180, Math.ceil(content.getBoundingClientRect().height));
         content.style.height = H + 'px';
         outer.style.setProperty('--h', H + 'px');
+    })();
+    </script>
+
+    <!-- 音频点阵可视化：AnalyserNode → 每列柱高 → 逐格 opacity -->
+    <script>
+    (function() {
+        var audio = document.getElementById('bgm-player');
+        var layer = document.getElementById('visualizer');
+        var grid  = document.getElementById('visualizer-grid');
+        if (!audio || !layer || !grid) return;
+
+        var DESIGN_H = 2160;
+        var BAND_H   = 420;
+        var CELL     = 18;
+        var GAP      = 18;
+        var STEP     = CELL + GAP;      // 36
+        var FFT_SIZE = 2048;
+        var SMOOTH   = 0.25;            // 列高逐帧插值
+        var GAMMA    = 0.5;             // 音量提亮
+        var BASE_H   = 0;               // 静止柱高
+        var USABLE_RATIO = 2 / 3;
+
+        var cols = 0, rows = 0;
+        var cells = [];
+        var colH = [];
+
+        var ctx = null, analyser = null, freqData = null;
+        var audioReady = false, audioFailed = false;
+        var raf = 0;
+        var hideTimer = 0;
+        var resizeTimer = 0;
+        var gotSignal = false;
+        var startTs = 0;
+
+        function isMobile() {
+            return window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+        }
+
+        function getScale() {
+            var s = window.innerHeight / DESIGN_H;
+            if (!isFinite(s) || s <= 0) s = 1;
+            return s;
+        }
+
+        function buildGrid() {
+            var s = getScale();
+            layer.style.setProperty('--viz-s', s);
+
+            var bandW = window.innerWidth / s;
+            var nextCols = Math.max(1, Math.floor((bandW + GAP) / STEP));
+            var nextRows = Math.max(1, Math.floor((BAND_H + GAP) / STEP));
+
+            // 水平居中：把右侧余量均分到左右两侧（原版是左对齐）
+            var used = (nextCols * STEP - GAP) * s;
+            var offset = (window.innerWidth - used) / 2;
+            if (offset < 0) offset = 0;
+            grid.style.transform = 'translateX(' + offset + 'px)';
+
+            if (nextCols === cols && nextRows === rows && grid.childNodes.length) return;
+
+            cols = nextCols;
+            rows = nextRows;
+
+            var frag = document.createDocumentFragment();
+            cells = [];
+            for (var j = 0; j < rows; j++) {
+                for (var i = 0; i < cols; i++) {
+                    var cell = document.createElement('div');
+                    cell.className = 'viz-cell';
+                    cell.style.left = 'calc(' + (i * STEP) + 'px * var(--viz-s))';
+                    cell.style.top  = 'calc(' + (j * STEP) + 'px * var(--viz-s))';
+                    frag.appendChild(cell);
+                    cells.push(cell);
+                }
+            }
+            grid.innerHTML = '';
+            grid.appendChild(frag);
+
+            colH = new Array(cols);
+            for (var k = 0; k < cols; k++) colH[k] = BASE_H;
+
+            if (layer.classList.contains('fallback')) applyFallbackDelay();
+        }
+
+        function applyFallbackDelay() {
+            for (var j = 0; j < rows; j++) {
+                for (var i = 0; i < cols; i++) {
+                    var cell = cells[j * cols + i];
+                    if (cell) cell.style.animationDelay = (-(i + j) * 20) + 'ms';
+                }
+            }
+        }
+
+        function enableFallback() {
+            if (layer.classList.contains('fallback')) return;
+            layer.classList.add('fallback');
+            applyFallbackDelay();
+        }
+
+        function initAudio() {
+            if (audioReady || audioFailed) return;
+
+            var AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) { audioFailed = true; enableFallback(); return; }
+
+            try {
+                ctx = new AC();
+                var source = ctx.createMediaElementSource(audio);
+
+                analyser = ctx.createAnalyser();
+                analyser.fftSize = FFT_SIZE;
+                analyser.smoothingTimeConstant = 0.8;
+
+                source.connect(analyser);
+                analyser.connect(ctx.destination);   // 必须接 destination，否则静音
+                freqData = new Uint8Array(analyser.frequencyBinCount);
+
+                audioReady = true;
+            } catch (e) {
+                audioFailed = true;
+                audioReady = false;
+                enableFallback();
+            }
+        }
+
+        function renderFrame() {
+            raf = requestAnimationFrame(renderFrame);
+
+            if (!analyser || !freqData || cols < 1 || rows < 2) return;
+
+            if (audio.paused) {
+                if (!hideTimer) stop();
+                return;
+            }
+
+            analyser.getByteFrequencyData(freqData);
+
+            var usable = Math.floor(freqData.length * USABLE_RATIO);
+            var peak = 0;
+            for (var p = 0; p < usable; p++) {
+                if (freqData[p] > peak) peak = freqData[p];
+            }
+            if (peak > 0) {
+                gotSignal = true;
+            } else if (!gotSignal && startTs && (performance.now() - startTs) > 5000) {
+                // 连续拿不到任何信号 → 走原版的假频谱兜底
+                audioFailed = true;
+                enableFallback();
+                if (raf) { cancelAnimationFrame(raf); raf = 0; }
+                return;
+            }
+
+            var span = rows - 1;
+            for (var i = 0; i < cols; i++) {
+                var t0 = i / cols;
+                var t1 = (i + 1) / cols;
+                var from = Math.floor(usable * Math.pow(t0, 1.8));
+                var to = Math.max(from + 1, Math.floor(usable * Math.pow(t1, 1.8)));
+
+                var sum = 0;
+                for (var k = from; k < to; k++) sum += freqData[k];
+
+                var v = (sum / (to - from)) / 255;
+                var target = BASE_H + Math.pow(v, GAMMA) * (1 - BASE_H);
+
+                if (colH[i] === undefined) colH[i] = BASE_H;
+                colH[i] += (target - colH[i]) * SMOOTH;
+
+                var topRow = (1 - colH[i]) * span;
+                if (topRow > span - 1) topRow = span - 1;
+
+                var colSpan = span - topRow;
+                var inv = 1 / colSpan;
+
+                for (var j = 0; j < rows; j++) {
+                    var cell = cells[j * cols + i];
+                    if (!cell) continue;
+                    var a = (j - topRow) * inv;
+                    if (a < 0) a = 0; else if (a > 1) a = 1;
+                    cell.style.opacity = a.toFixed(3);
+                }
+            }
+        }
+
+        function start() {
+            if (isMobile()) return;
+            if (audio.paused) return;
+
+            clearTimeout(hideTimer);
+            hideTimer = 0;
+
+            if (!audioReady && !audioFailed) initAudio();
+
+            layer.classList.add('visible');
+            if (audioFailed) { enableFallback(); return; }
+
+            gotSignal = false;
+            startTs = performance.now();
+
+            if (ctx && ctx.state === 'suspended') {
+                ctx.resume().catch(function() {});
+            }
+            if (!raf) renderFrame();
+        }
+
+        function stop() {
+            clearTimeout(hideTimer);
+            hideTimer = setTimeout(function() {
+                hideTimer = 0;
+                if (!audio.paused) return;   // 期间已恢复播放
+                layer.classList.remove('visible');
+                if (raf) { cancelAnimationFrame(raf); raf = 0; }
+                if (ctx && ctx.state === 'running') {
+                    ctx.suspend().catch(function() {});
+                }
+            }, 180);
+        }
+
+        function onResize() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function() {
+                if (isMobile()) {
+                    layer.classList.remove('visible');
+                    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+                    return;
+                }
+                buildGrid();
+                if (!audio.paused) start();   // 音乐仍在播放：重新显示并接回渲染
+            }, 150);
+        }
+
+        if (!isMobile()) buildGrid();
+
+        audio.addEventListener('play', start);
+        audio.addEventListener('pause', stop);
+        audio.addEventListener('ended', stop);
+        window.addEventListener('resize', onResize);
+
+        // 兜底：即使漏掉 pause 事件，也保证暂停后自动隐藏
+        setInterval(function() {
+            if (audio.paused && layer.classList.contains('visible')) stop();
+        }, 1000);
     })();
     </script>
 
