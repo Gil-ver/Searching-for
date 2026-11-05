@@ -1862,6 +1862,7 @@
         var SMOOTH   = 0.25;            // 列高逐帧插值
         var GAMMA    = 0.5;             // 音量提亮
         var BASE_H   = 0;               // 静止柱高
+        var MAX_OPACITY = 0.75;         // 底边亮度上限（柱顶仍为 0）
         var USABLE_RATIO = 2 / 3;
 
         var cols = 0, rows = 0;
@@ -2021,7 +2022,7 @@
                     if (!cell) continue;
                     var a = (j - topRow) * inv;
                     if (a < 0) a = 0; else if (a > 1) a = 1;
-                    cell.style.opacity = a.toFixed(3);
+                    cell.style.opacity = (a * MAX_OPACITY).toFixed(3);
                 }
             }
         }
