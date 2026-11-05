@@ -124,21 +124,14 @@ img {
     padding: 4px 0;
     border-radius: 8px;
     overflow: hidden;
+    background: rgba(0, 0, 0, 0.5);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    clip-path: inset(0 0 0 0 round 8px);
     z-index: 200;
     pointer-events: none;
     transition: opacity .14s ease, visibility .14s;
-}
-
-/* 纯色背景层：打开时由 translateY(-100%) 滑到 0，视觉上框向下延展 */
-.top-nav-dropdown-menu::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    transform: translateY(0);
-    z-index: -1;
-    pointer-events: none;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 :is(.top-nav-dropdown:hover, .top-nav-dropdown:focus-within) .top-nav-dropdown-menu {
@@ -146,10 +139,12 @@ img {
     opacity: 1;
     pointer-events: auto;
     transition: opacity 0s, visibility 0s;
+    animation: navMenuReveal .18s cubic-bezier(.2, .8, .2, 1) both;
 }
 
-:is(.top-nav-dropdown:hover, .top-nav-dropdown:focus-within) .top-nav-dropdown-menu::before {
-    animation: navPanelExtend .18s cubic-bezier(.2, .8, .2, 1) both;
+@keyframes navMenuReveal {
+    from { clip-path: inset(0 0 100% 0 round 8px); }
+    to   { clip-path: inset(0 0 0 0 round 8px); }
 }
 
 :is(.top-nav-dropdown:hover, .top-nav-dropdown:focus-within) .top-nav-dropdown-menu a {
@@ -161,11 +156,6 @@ img {
 :is(.top-nav-dropdown:hover, .top-nav-dropdown:focus-within) .top-nav-dropdown-menu a:nth-child(4) { animation-delay: .145s; }
 :is(.top-nav-dropdown:hover, .top-nav-dropdown:focus-within) .top-nav-dropdown-menu a:nth-child(5) { animation-delay: .18s; }
 :is(.top-nav-dropdown:hover, .top-nav-dropdown:focus-within) .top-nav-dropdown-menu a:nth-child(6) { animation-delay: .215s; }
-
-@keyframes navPanelExtend {
-    from { transform: translateY(-100%); }
-    to   { transform: translateY(0); }
-}
 
 @keyframes navItemIn {
     from { opacity: 0; transform: translateX(-6px); }
@@ -267,15 +257,20 @@ img {
     transition: opacity 0s, visibility 0s;
 }
 
-/* 面板延展 + 整体渐显（与左侧下拉同节奏，文字不做位移） */
-:is(.weather-box:hover, .weather-box:focus-within) .weather-card::before {
-    animation: navPanelExtend .18s cubic-bezier(.2, .8, .2, 1) both;
+/* 面板 + 模糊一起向下揭开；内容整体渐显 */
+:is(.weather-box:hover, .weather-box:focus-within) .weather-card {
+    animation: weatherCardReveal .18s cubic-bezier(.2, .8, .2, 1) both;
 }
 
 :is(.weather-box:hover, .weather-box:focus-within) .weather-card-head,
 :is(.weather-box:hover, .weather-box:focus-within) .weather-card-days,
 :is(.weather-box:hover, .weather-box:focus-within) .weather-card-foot {
     animation: weatherFadeIn .16s ease both;
+}
+
+@keyframes weatherCardReveal {
+    from { clip-path: inset(0 0 100% 0 round 8px); }
+    to   { clip-path: inset(0 0 0 0 round 8px); }
 }
 
 @keyframes weatherFadeIn {
@@ -285,26 +280,21 @@ img {
 
 .weather-card {
     position: relative;
-    isolation: isolate;
+    z-index: 0;
     overflow: hidden;
     border-radius: 8px;
+    background: rgba(0, 0, 0, 0.5);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    clip-path: inset(0 0 0 0 round 8px);
     padding: 14px 16px 12px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     color: rgba(255, 255, 255, 0.85);
     font-family: Arial, "Microsoft YaHei", "微软雅黑", sans-serif;
     text-align: left;
 }
 
-/* 纯色背景层：打开时由 translateY(-100%) 滑到 0，视觉上框向下延展 */
-.weather-card::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-    transform: translateY(0);
-    z-index: -1;
-    pointer-events: none;
-}
+/* 纯色背景层已并入 .weather-card（背景 + 模糊 + clip 一起揭开） */
 
 .weather-card-head {
     display: flex;
@@ -405,8 +395,6 @@ img {
     width: 100%;
     height: 48px;
     background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
     z-index: -1;
     pointer-events: none;
 }
@@ -1065,13 +1053,10 @@ img {
         min-width: auto;
     }
 
-    /* ---------- 隐藏：顶部导航 / 顶栏底色 / 导航卡片 / 以图搜图（天气保留） ---------- */
+    /* ---------- 隐藏：顶部导航 / 导航卡片 / 以图搜图（顶栏底色与天气保留） ---------- */
     .top-nav,
     #s-nav-wrapper,
     .search-left-icon-wrapper {
-        display: none;
-    }
-    #wrapper::before {
         display: none;
     }
 
