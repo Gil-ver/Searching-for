@@ -1432,3 +1432,26 @@ img {
         display: none;
     }
 }
+
+/* ============================================================
+   切标签 / 点击新标签链接后：强制收起悬停浮层
+   仅当 <html> 带 .hover-lock 时生效；需离开触发区再进入（或点击/按键）才解除。
+   收起后的浮层 pointer-events:none，鼠标停在原位不会立刻重新触发 hover。
+   ============================================================ */
+.hover-lock :is(.top-nav-dropdown:hover, .top-nav-dropdown:focus-within) .top-nav-dropdown-menu {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: none;
+}
+
+.hover-lock :is(.top-nav-dropdown:hover, .top-nav-dropdown:focus-within) .nav-chevron {
+    transform: none;
+}
+
+.hover-lock :is(.weather-box:hover, .weather-box:focus-within) .weather-popup {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: none;
+}

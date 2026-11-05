@@ -2087,5 +2087,84 @@
     })();
     </script>
 
+    <!-- 切标签 / 点击新标签链接后，强制收起悬停浮层（下拉、天气） -->
+    <script>
+    (function() {
+        var root = document.documentElement;
+        var hoverArmed = true;   // 加锁后必须先离开触发区一次，再进入才解锁
+
+        function lockHover() {
+            root.classList.add('hover-lock');
+            hoverArmed = false;
+        }
+
+        function unlockHover() {
+            root.classList.remove('hover-lock');
+            hoverArmed = true;
+        }
+
+        function blurActiveIfInPopover() {
+            var el = document.activeElement;
+            if (!el || !el.closest) return;
+            if (el.closest('.top-nav-dropdown') || el.closest('.weather-box')) {
+                if (typeof el.blur === 'function') el.blur();
+            }
+        }
+
+        // 点击浮层内的链接：
+        //   Ctrl/Meta + 左键 = 后台开新标签，当前页仍在前台 → 只去焦点，不加锁，
+        //   浮层继续由 :hover 保持，鼠标移开自然关闭（不闪）。
+        //   普通左键 → 立即收起，返回后不残留。
+        document.addEventListener('click', function(e) {
+            var a = e.target && e.target.closest ? e.target.closest('a') : null;
+            if (!a) return;
+            if (a.closest('.top-nav-dropdown') || a.closest('.weather-box')) {
+                if (!(e.ctrlKey || e.metaKey)) {
+                    lockHover();
+                }
+                if (typeof a.blur === 'function') a.blur();
+            }
+        }, true);
+
+        // 切标签 / 窗口失焦 / bfcache 返回
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                lockHover();
+                blurActiveIfInPopover();
+            }
+        });
+        window.addEventListener('blur', function() {
+            lockHover();
+            blurActiveIfInPopover();
+        });
+        window.addEventListener('pageshow', function(e) {
+            if (e.persisted) {
+                lockHover();
+                blurActiveIfInPopover();
+            }
+        });
+
+        // 解锁：必须先在触发区外移动一次（armed），再移入触发区才恢复；
+        // 这样回到页面时鼠标若仍停在触发区/原浮层位置，都不会立刻展开。
+        window.addEventListener('pointermove', function(e) {
+            var t = e.target;
+            var inTrigger = t && t.closest && t.closest('.top-nav-dropdown, .weather-box');
+            if (!inTrigger) {
+                hoverArmed = true;
+                return;
+            }
+            if (hoverArmed) unlockHover();
+        }, { passive: true });
+        window.addEventListener('mousedown', unlockHover, { passive: true });
+        window.addEventListener('touchstart', unlockHover, { passive: true });
+        // 忽略修饰键本身与按键重复：Ctrl+Click 时 Ctrl 的重复 keydown 不能把刚加的锁解开
+        window.addEventListener('keydown', function(e) {
+            if (e.repeat) return;
+            if (e.key === 'Control' || e.key === 'Shift' || e.key === 'Alt' || e.key === 'Meta') return;
+            unlockHover();
+        });
+    })();
+    </script>
+
 </body>
 </html>
