@@ -1176,6 +1176,7 @@
         var currentIndex = -1;
         var shuffleMode = true;
         var loopMode = 'all'; // all | one | off
+        var orderMode = 'az'; // az | newold
         var playing = false;
         var audio = null;
         var errorCount = 0;        // 防止无限死循环
@@ -1184,6 +1185,122 @@
         var switchingSong = false; // 切歌锁，防止内部 pause 触发 UI 刷新
         var shuffleQueue = [];      // Fisher-Yates 洗牌后的完整歌单索引队列
         var shufflePosition = -1;   // 当前在队列中的位置
+        var hasLoadedSource = false; // 当前是否已把某首歌设进 <audio>
+
+        // ---- 本地记忆：上次歌曲 + 播放模式（不记进度） ----
+        var BGM_STATE_KEY = 'bgm_state_v1';
+
+        function readBgmState() {
+            try {
+                var s = JSON.parse(localStorage.getItem(BGM_STATE_KEY));
+                return s && typeof s === 'object' ? s : null;
+            } catch (e) { return null; }
+        }
+
+        function saveBgmState() {
+            try {
+                var p = playlist[currentIndex];
+                localStorage.setItem(BGM_STATE_KEY, JSON.stringify({
+                    filename: p ? p.filename : '',
+                    shuffle: !!shuffleMode,
+                    loop: loopMode,
+                    order: orderMode
+                }));
+            } catch (e) {}
+        }
+
+        function restoreBgmState() {
+            var s = readBgmState();
+            if (!s) return;
+
+            if (s.shuffle === true) {
+                shuffleMode = true;
+                loopMode = 'all';
+                orderMode = 'az';
+            } else {
+                shuffleMode = false;
+                loopMode = (s.loop === 'one' || s.loop === 'off') ? s.loop : 'all';
+                orderMode = (s.order === 'newold' && loopMode !== 'one') ? 'newold' : 'az';
+            }
+
+            if (typeof s.filename === 'string' && s.filename) {
+                for (var i = 0; i < playlist.length; i++) {
+                    if (playlist[i].filename === s.filename) {
+                        currentIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
+
+        function hasAudioSource() {
+            return !!hasLoadedSource;
+        }
+
+        // 恢复/继续当前歌曲：若恢复的歌曲还没加载，则加载并从 0 播放
+        function resumeCurrentSong() {
+            if (currentIndex < 0) {
+                playIndex(nextShuffleIndex());
+                return;
+            }
+
+            if (!hasAudioSource()) {
+                playIndex(currentIndex);
+                return;
+            }
+
+            var p = playlist[currentIndex];
+            playing = true;
+            audio.play().then(function() {
+                refreshBgmUI();
+            }).catch(function(e) {
+                playing = false;
+                refreshBgmUI();
+                console.warn('[BGM] 恢复播放失败:', e.message);
+            });
+            var footEl = document.getElementById('foot-text');
+            if (footEl) footEl.textContent = ' - ' + p.name + ' - ';
+            var spinIcon = document.getElementById('bgm-spin-icon');
+            if (spinIcon) spinIcon.classList.add('playing');
+        }
+
+        restoreBgmState();
+
+        var azOrder = [];
+        var newOldOrder = [];
+
+        // 建立两种播放顺序的索引表：A-Z / 新旧（serialNum 降序）
+        function buildOrderIndices() {
+            azOrder = [];
+            newOldOrder = [];
+            for (var i = 0; i < playlist.length; i++) {
+                azOrder.push(i);
+                newOldOrder.push(i);
+            }
+
+            azOrder.sort(function(a, b) {
+                var na = playlist[a].name.toLowerCase();
+                var nb = playlist[b].name.toLowerCase();
+                return na < nb ? -1 : (na > nb ? 1 : 0);
+            });
+
+            var hasSerial = false;
+            for (var j = 0; j < playlist.length; j++) {
+                if (playlist[j].serialNum) { hasSerial = true; break; }
+            }
+            if (hasSerial) {
+                newOldOrder.sort(function(a, b) {
+                    return (Number(playlist[b].serialNum) || 0) - (Number(playlist[a].serialNum) || 0);
+                });
+            }
+            // 旧数据没有 serialNum 时保持 playlist 原始顺序（接口的新→旧）
+        }
+
+        function getOrderIndices() {
+            return (orderMode === 'newold' && newOldOrder.length) ? newOldOrder : azOrder;
+        }
+
+        buildOrderIndices();
 
         // Fisher-Yates 洗牌，生成新的随机队列
         function initShuffleQueue() {
@@ -1234,8 +1351,10 @@
                 console.error('[BGM] ⛔ 连续失败 ' + MAX_CONSEC_ERR + ' 次，停止播放');
                 audio.pause();
                 audio.src = '';
+                hasLoadedSource = false;
                 playing = false;
                 currentIndex = -1;
+                saveBgmState();
                 errorCount = 0;
                 refreshBgmUI();
                 var footEl = document.getElementById('foot-text');
@@ -1280,6 +1399,7 @@
             switchingSong = true;
             audio.pause();
             audio.src = MP3_BASE + encodeURIComponent(program.filename) + '.mp3';
+            hasLoadedSource = true;
             audio.load();
             audio.play().then(function() {
                 switchingSong = false;
@@ -1296,6 +1416,7 @@
             if (idx < 0 || idx >= playlist.length) return;
             errorCount = 0;
             currentIndex = idx;
+            saveBgmState();
             playing = true;
             refreshBgmUI();
             updatePlaylistHighlight(idx);
@@ -1322,8 +1443,12 @@
                 }
                 idx = shuffleQueue[shufflePosition];
             } else {
-                idx = currentIndex - 1;
-                if (idx < 0) idx = playlist.length - 1;
+                var order = getOrderIndices();
+                if (!order.length) return;
+                var pos = order.indexOf(currentIndex);
+                var prevPos = pos - 1;
+                if (prevPos < 0) prevPos = order.length - 1;
+                idx = order[prevPos];
             }
             playIndex(idx);
             scrollPlaylistToCurrent();
@@ -1335,14 +1460,16 @@
             if (shuffleMode) {
                 idx = nextShuffleIndex();
             } else {
-                idx = currentIndex + 1;
-                if (idx >= playlist.length) {
-                    if (loopMode === 'all') {
-                        idx = 0;
-                    } else {
+                var order = getOrderIndices();
+                if (!order.length) return;
+                var pos = order.indexOf(currentIndex);
+                var nextPos = (pos < 0) ? 0 : pos + 1;
+                if (nextPos >= order.length) {
+                    if (loopMode === 'off') {
                         // off: 停止播放
                         audio.pause();
                         audio.src = '';
+                        hasLoadedSource = false;
                         playing = false;
                         refreshBgmUI();
                         var footEl = document.getElementById('foot-text');
@@ -1352,7 +1479,9 @@
                         console.log('[BGM] ⏹ 播放完毕（列表结束）');
                         return;
                     }
+                    nextPos = 0;
                 }
+                idx = order[nextPos];
             }
             playIndex(idx);
             scrollPlaylistToCurrent();
@@ -1377,23 +1506,9 @@
                 if (spinIcon) spinIcon.classList.remove('playing');
                 console.log('[BGM] ⏸ 已暂停');
             } else {
-                // 继续播放：从暂停位置恢复（保留进度）
-                var p = playlist[currentIndex];
-                playing = true;
-                audio.play().then(function() {
-                    refreshBgmUI();
-                }).catch(function(e) {
-                    playing = false;
-                    refreshBgmUI();
-                    console.warn('[BGM] 恢复播放失败:', e.message);
-                });
-                // 底部文字恢复歌名
-                var footEl = document.getElementById('foot-text');
-                if (footEl) footEl.textContent = ' - ' + p.name + ' - ';
-                // 网易云图标开始旋转
-                var spinIcon = document.getElementById('bgm-spin-icon');
-                if (spinIcon) spinIcon.classList.add('playing');
-                console.log('[BGM] ▶ 继续播放: ' + p.name);
+                // 继续播放：已加载则从暂停位置恢复；恢复的歌曲尚未加载则加载后从 0 播放
+                resumeCurrentSong();
+                console.log('[BGM] ▶ 继续播放: ' + playlist[currentIndex].name);
             }
         }
 
@@ -1407,20 +1522,8 @@
                 if (currentIndex === -1) {
                     playIndex(nextShuffleIndex());
                 } else if (!playing) {
-                    var p = playlist[currentIndex];
-                    playing = true;
-                    audio.play().then(function() {
-                        refreshBgmUI();
-                    }).catch(function(e) {
-                        playing = false;
-                        refreshBgmUI();
-                        console.warn('[BGM] 恢复播放失败:', e.message);
-                    });
-                    var footEl2 = document.getElementById('foot-text');
-                    if (footEl2) footEl2.textContent = ' - ' + p.name + ' - ';
-                    var spinIcon2 = document.getElementById('bgm-spin-icon');
-                    if (spinIcon2) spinIcon2.classList.add('playing');
-                    console.log('[BGM] ▶ 继续播放: ' + p.name);
+                    resumeCurrentSong();
+                    console.log('[BGM] ▶ 继续播放: ' + playlist[currentIndex].name);
                 }
                 controls.style.display = 'flex';
             } else {
@@ -1442,8 +1545,10 @@
         function toggleShuffle() {
             shuffleMode = !shuffleMode;
             if (shuffleMode) loopMode = 'all';
+            orderMode = 'az';
             initShuffleQueue(); // 切换模式时重建洗牌队列
             refreshBgmUI();
+            saveBgmState();
             console.log('[BGM] 🔀 随机播放: ' + (shuffleMode ? 'ON' : 'OFF'));
         }
 
@@ -1452,8 +1557,10 @@
             else if (loopMode === 'one') loopMode = 'off';
             else loopMode = 'all';
             if (loopMode !== 'off') shuffleMode = false;
+            orderMode = 'az';
             initShuffleQueue(); // 切换模式时重建洗牌队列
             refreshBgmUI();
+            saveBgmState();
             console.log('[BGM] 🔁 循环模式: ' + (loopMode === 'all' ? '全部循环' : loopMode === 'one' ? '单曲循环' : '关闭循环'));
         }
 
@@ -1463,10 +1570,10 @@
             var playBtn = document.getElementById('bgm-play-btn');
             if (shuffleMode) {
                 modeBtn.textContent = '🔀';
+            } else if (orderMode === 'newold') {
+                modeBtn.textContent = '↕️';
             } else if (loopMode === 'one') {
                 modeBtn.textContent = '🔂';
-            } else if (loopMode === 'all') {
-                modeBtn.textContent = '🔁';
             } else {
                 modeBtn.textContent = '🔁';
             }
@@ -1475,17 +1582,34 @@
 
         function cycleBgmMode() {
             if (shuffleMode) {
+                // 🔀 → ↕️
                 shuffleMode = false;
                 loopMode = 'all';
+                orderMode = 'newold';
+            } else if (orderMode === 'newold') {
+                // ↕️ → 🔁
+                loopMode = 'all';
+                orderMode = 'az';
             } else if (loopMode === 'all') {
+                // 🔁 → 🔂
                 loopMode = 'one';
-            } else {
-                // 单曲播放 → 随机播放（3 步循环：随机→循环→单曲→随机）
+                orderMode = 'az';
+            } else if (loopMode === 'one') {
+                // 🔂 → 🔀
                 shuffleMode = true;
                 loopMode = 'all';
+                orderMode = 'az';
+            } else {
+                // 关闭循环 → ↕️
+                shuffleMode = false;
+                loopMode = 'all';
+                orderMode = 'newold';
             }
             refreshBgmUI();
-            var label = shuffleMode ? '随机播放' : loopMode === 'all' ? '全部循环' : '单曲循环';
+            saveBgmState();
+            var label = shuffleMode ? '随机播放'
+                      : (orderMode === 'newold' ? '新旧顺序'
+                      : (loopMode === 'one' ? '单曲循环' : '全部循环'));
             console.log('[BGM] 模式切换: ' + label);
         }
 
@@ -1702,6 +1826,37 @@
             }
         });
 
+        // 播放列表打开时：Home / End 到顶/底，PageUp / PageDown 翻页
+        document.addEventListener('keydown', function(e) {
+            var keys = ['Home', 'End', 'PageUp', 'PageDown'];
+            if (keys.indexOf(e.key) === -1) return;
+            if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+
+            var panel = document.getElementById('bgm-playlist-panel');
+            if (!panel || !panel.classList.contains('open')) return;
+
+            // 输入框/文本域聚焦时，这些键仍用于移动光标
+            var t = e.target;
+            if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' ||
+                      t.tagName === 'SELECT' || t.isContentEditable)) return;
+
+            var inner = document.getElementById('bgm-playlist-inner');
+            if (!inner) return;
+
+            e.preventDefault();
+            var max = inner.scrollHeight - inner.clientHeight;
+            var page = inner.clientHeight;
+            if (e.key === 'Home') {
+                inner.scrollTop = 0;
+            } else if (e.key === 'End') {
+                inner.scrollTop = max;
+            } else if (e.key === 'PageUp') {
+                inner.scrollTop = Math.max(0, inner.scrollTop - page);
+            } else {
+                inner.scrollTop = Math.min(max, inner.scrollTop + page);
+            }
+        });
+
         // 键盘媒体键直接捕获（仅用于首次激活：控制栏隐藏 → 弹出控制栏）
         // 控制栏可见后，全部交给 MediaSession API 处理，避免双重触发
         document.addEventListener('keydown', function(e) {
@@ -1720,19 +1875,8 @@
                 if (currentIndex >= 0 && !playing) {
                     // 控制栏隐藏时先激活音乐功能（等同 Ctrl+Click 网易云图标）
                     var ctrl = document.getElementById('bgm-controls');
-                    if (ctrl.style.display !== 'flex') ctrl.style.display = 'flex';
-                    var p = playlist[currentIndex];
-                    playing = true;
-                    audio.play().then(function() {
-                        refreshBgmUI();
-                        var footEl = document.getElementById('foot-text');
-                        if (footEl) footEl.textContent = ' - ' + p.name + ' - ';
-                        var spinIcon = document.getElementById('bgm-spin-icon');
-                        if (spinIcon) spinIcon.classList.add('playing');
-                    }).catch(function(e) {
-                        playing = false;
-                        refreshBgmUI();
-                    });
+                    if (ctrl && ctrl.style.display !== 'flex') ctrl.style.display = 'flex';
+                    resumeCurrentSong();
                 } else if (currentIndex === -1) {
                     playIndex(nextShuffleIndex());
                     document.getElementById('bgm-controls').style.display = 'flex';
@@ -1777,6 +1921,10 @@
 
         // 预渲染播放列表 DOM
         renderPlaylist();
+
+        // 恢复上次歌曲的高亮与模式图标（控制栏仍隐藏，激活音乐时生效）
+        if (currentIndex >= 0) updatePlaylistHighlight(currentIndex);
+        refreshBgmUI();
 
         // 启动提示
         console.log('[BGM] 播客播放器就绪。\n  Ctrl+Click 网易云音乐图标 = 随机播放 | 右上角控制栏操作切歌/换模式');
