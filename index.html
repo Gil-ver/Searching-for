@@ -1185,6 +1185,7 @@
         var switchingSong = false; // 切歌锁，防止内部 pause 触发 UI 刷新
         var shuffleQueue = [];      // Fisher-Yates 洗牌后的完整歌单索引队列
         var shufflePosition = -1;   // 当前在队列中的位置
+        var renderedOrderMode = ''; // 面板当前实际渲染用的顺序（az / newold）
         var hasLoadedSource = false; // 当前是否已把某首歌设进 <audio>
 
         // ---- 本地记忆：上次歌曲 + 播放模式（不记进度） ----
@@ -1302,7 +1303,7 @@
 
         buildOrderIndices();
 
-        // Fisher-Yates 洗牌，生成新的随机队列
+        // Fisher-Yates 洗牌，生成新的随机队列（一轮内不重复，走完重洗）
         function initShuffleQueue() {
             shuffleQueue = [];
             for (var i = 0; i < playlist.length; i++) shuffleQueue.push(i);
@@ -1312,15 +1313,41 @@
                 shuffleQueue[i] = shuffleQueue[j];
                 shuffleQueue[j] = tmp;
             }
-            shufflePosition = -1;
+            // 游标对齐当前曲：点歌/切模式后「下一首」不会立刻重播当前曲
+            var cur = shuffleQueue.indexOf(currentIndex);
+            shufflePosition = cur >= 0 ? cur : -1;
         }
 
-        // 随机模式：从洗牌队列取下一首（环形绕回，永不丢失历史）
+        // 随机模式：取洗牌队列下一首；走到队尾 → 重洗一轮，从队首继续
         function nextShuffleIndex() {
-            if (shuffleQueue.length === 0) initShuffleQueue();
+            if (playlist.length === 0) return -1;
+            if (shuffleQueue.length !== playlist.length) initShuffleQueue();
             shufflePosition++;
-            if (shufflePosition >= shuffleQueue.length) shufflePosition = 0;
+            if (shufflePosition >= shuffleQueue.length) {
+                initShuffleQueue();
+                shufflePosition = 0;
+            }
             return shuffleQueue[shufflePosition];
+        }
+
+        // 随机模式：取洗牌队列上一首；走到队首 → 重洗一轮，从队尾继续
+        function prevShuffleIndex() {
+            if (playlist.length === 0) return -1;
+            if (shuffleQueue.length !== playlist.length) initShuffleQueue();
+            shufflePosition--;
+            if (shufflePosition < 0) {
+                initShuffleQueue();
+                shufflePosition = shuffleQueue.length - 1;
+            }
+            return shuffleQueue[shufflePosition];
+        }
+
+        // 手动点歌：把随机游标对齐到该曲，使 next / prev 以它为基准
+        function alignShuffleTo(idx) {
+            if (!shuffleMode) return;
+            if (shuffleQueue.length !== playlist.length) initShuffleQueue();
+            var pos = shuffleQueue.indexOf(idx);
+            if (pos >= 0) shufflePosition = pos;
         }
 
         audio = document.getElementById('bgm-player');
@@ -1435,13 +1462,7 @@
             if (playlist.length === 0) return;
             var idx;
             if (shuffleMode) {
-                // 洗牌队列回溯：上一首即位置前移
-                if (shuffleQueue.length === 0) initShuffleQueue();
-                shufflePosition--;
-                if (shufflePosition < 0) {
-                    shufflePosition = shuffleQueue.length - 1;
-                }
-                idx = shuffleQueue[shufflePosition];
+                idx = prevShuffleIndex();
             } else {
                 var order = getOrderIndices();
                 if (!order.length) return;
@@ -1549,6 +1570,7 @@
             initShuffleQueue(); // 切换模式时重建洗牌队列
             refreshBgmUI();
             saveBgmState();
+            refreshPlaylistOrder();
             console.log('[BGM] 🔀 随机播放: ' + (shuffleMode ? 'ON' : 'OFF'));
         }
 
@@ -1561,6 +1583,7 @@
             initShuffleQueue(); // 切换模式时重建洗牌队列
             refreshBgmUI();
             saveBgmState();
+            refreshPlaylistOrder();
             console.log('[BGM] 🔁 循环模式: ' + (loopMode === 'all' ? '全部循环' : loopMode === 'one' ? '单曲循环' : '关闭循环'));
         }
 
@@ -1599,6 +1622,7 @@
                 shuffleMode = true;
                 loopMode = 'all';
                 orderMode = 'az';
+                initShuffleQueue();
             } else {
                 // 关闭循环 → ↕️
                 shuffleMode = false;
@@ -1607,41 +1631,57 @@
             }
             refreshBgmUI();
             saveBgmState();
+            refreshPlaylistOrder();
             var label = shuffleMode ? '随机播放'
                       : (orderMode === 'newold' ? '新旧顺序'
                       : (loopMode === 'one' ? '单曲循环' : '全部循环'));
             console.log('[BGM] 模式切换: ' + label);
         }
 
-        // 渲染播放列表 DOM
+        // 渲染播放列表 DOM（顺序跟随播放模式：A-Z / ↕️ 新→旧）
         function renderPlaylist() {
             var inner = document.getElementById('bgm-playlist-inner');
             if (!inner) return;
             inner.innerHTML = '';
 
-            // 按歌名首字母排序（忽略大小写）
-            var sorted = playlist.slice().sort(function(a, b) {
-                var na = a.name.toLowerCase();
-                var nb = b.name.toLowerCase();
-                if (na < nb) return -1;
-                if (na > nb) return 1;
-                return 0;
-            });
+            // 与播放顺序同源：azOrder 或 newOldOrder
+            var order = getOrderIndices();
+            renderedOrderMode = (orderMode === 'newold') ? 'newold' : 'az';
 
-            for (var i = 0; i < sorted.length; i++) {
+            for (var i = 0; i < order.length; i++) {
+                var origIdx = order[i];
                 var item = document.createElement('div');
                 item.className = 'bgm-playlist-item';
                 var span = document.createElement('span');
-                span.textContent = sorted[i].name;
+                span.textContent = playlist[origIdx].name;
                 item.appendChild(span);
-                // 用原始 playlist 中的索引，保证点击切歌正确
-                var origIdx = playlist.indexOf(sorted[i]);
+                // 直接记录原始 playlist 索引，保证点击切歌正确
                 item.setAttribute('data-bgm-idx', origIdx);
                 item.addEventListener('click', function() {
                     var idx = parseInt(this.getAttribute('data-bgm-idx'));
-                    if (!isNaN(idx)) playIndex(idx);
+                    if (isNaN(idx)) return;
+                    alignShuffleTo(idx);
+                    playIndex(idx);
                 });
                 inner.appendChild(item);
+            }
+        }
+
+        // 播放模式改变后重排面板（仅当顺序真的在 A-Z ↔ ↕️ 之间变化时才重建）
+        function refreshPlaylistOrder() {
+            var nextOrderMode = (orderMode === 'newold') ? 'newold' : 'az';
+            if (nextOrderMode === renderedOrderMode) return;
+
+            var panel = document.getElementById('bgm-playlist-panel');
+            var wasOpen = panel && panel.classList.contains('open');
+
+            renderPlaylist();
+            updatePlaylistHighlight(currentIndex);
+
+            if (wasOpen) {
+                detectPlaylistOverflow();
+                scrollPlaylistToCurrent();
+                animatePlaylistItems();
             }
         }
 
