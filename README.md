@@ -15,4 +15,3 @@
 - **快捷导航**：集成常用高频网站图标，一键直达。
 
 ![主页预览图](preview.png)
-*All good things to those who wait.*
