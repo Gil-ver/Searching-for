@@ -202,11 +202,28 @@
         <!-- 底部信息：BGM 控件绑定在句子上方（脱离文档流，不影响布局） -->
         <div id="foot">
             <div class="bgm-controls" id="bgm-controls" style="display:none;">
-                <button class="bgm-btn" id="bgm-mode-btn">🔀</button>
+                <button class="bgm-btn" id="bgm-mode-btn" aria-haspopup="menu" aria-expanded="false">🔀</button>
                 <button class="bgm-btn" id="bgm-prev-btn">⏮️</button>
                 <button class="bgm-btn" id="bgm-play-btn">▶️</button>
                 <button class="bgm-btn" id="bgm-next-btn">⏭️</button>
                 <button class="bgm-btn" id="bgm-list-btn">🔠</button>
+                <div class="bgm-mode-menu" id="bgm-mode-menu" role="menu" aria-label="播放模式">
+                    <button class="bgm-mode-item" type="button" role="menuitem" data-mode="shuffle" aria-label="随机播放">
+                        <span class="bgm-mode-icon">🔀</span>
+                    </button>
+                    <button class="bgm-mode-item" type="button" role="menuitem" data-mode="newold" aria-label="新旧顺序">
+                        <span class="bgm-mode-icon">↕️</span>
+                    </button>
+                    <button class="bgm-mode-item" type="button" role="menuitem" data-mode="newold-one" aria-label="新旧顺序单曲">
+                        <span class="bgm-mode-icon">↕️</span>
+                    </button>
+                    <button class="bgm-mode-item" type="button" role="menuitem" data-mode="all" aria-label="全部循环">
+                        <span class="bgm-mode-icon">🔁</span>
+                    </button>
+                    <button class="bgm-mode-item" type="button" role="menuitem" data-mode="one" aria-label="单曲循环">
+                        <span class="bgm-mode-icon">🔂</span>
+                    </button>
+                </div>
             </div>
             <span id="foot-text"> - All good things to those who wait. - </span>
         </div>
@@ -1028,7 +1045,7 @@
 
         /* ========== 本地搜索历史 ========== */
         var HISTORY_KEY = 'searchHistoryV1';
-        var HISTORY_MAX = 8;
+        var HISTORY_MAX = 10;
 
         function readHistory() {
             try {
@@ -1068,6 +1085,27 @@
                 textEl.className = 'suggest-item-text';
                 textEl.textContent = q;
                 item.appendChild(textEl);
+
+                // 单条删除按钮
+                var del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'history-delete';
+                del.title = '删除这条记录';
+                del.setAttribute('aria-label', '删除历史记录：' + q);
+                del.textContent = '×';
+                // 阻止行本身的 mousedown 把该条填入输入框，同时避免输入框失焦
+                del.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+                del.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    writeHistory(readHistory().filter(function(x) { return x !== q; }));
+                    renderHistory();
+                    suggestInput.focus();
+                });
+                item.appendChild(del);
 
                 item.addEventListener('mousedown', function(e) {
                     e.preventDefault();
@@ -1221,7 +1259,7 @@
             } else {
                 shuffleMode = false;
                 loopMode = (s.loop === 'one' || s.loop === 'off') ? s.loop : 'all';
-                orderMode = (s.order === 'newold' && loopMode !== 'one') ? 'newold' : 'az';
+                orderMode = (s.order === 'newold') ? 'newold' : 'az';
             }
 
             if (typeof s.filename === 'string' && s.filename) {
@@ -1591,8 +1629,12 @@
         function refreshBgmUI() {
             var modeBtn = document.getElementById('bgm-mode-btn');
             var playBtn = document.getElementById('bgm-play-btn');
+            var isNewoldOne = !shuffleMode && orderMode === 'newold' && loopMode === 'one';
+            if (modeBtn) modeBtn.classList.toggle('mode-newold-one', isNewoldOne);
             if (shuffleMode) {
                 modeBtn.textContent = '🔀';
+            } else if (isNewoldOne) {
+                modeBtn.textContent = '↕️';
             } else if (orderMode === 'newold') {
                 modeBtn.textContent = '↕️';
             } else if (loopMode === 'one') {
@@ -1601,41 +1643,98 @@
                 modeBtn.textContent = '🔁';
             }
             playBtn.textContent = playing ? '⏸️' : '▶️';
+            updateModeMenuActive();
         }
 
-        function cycleBgmMode() {
-            if (shuffleMode) {
-                // 🔀 → ↕️
-                shuffleMode = false;
-                loopMode = 'all';
-                orderMode = 'newold';
-            } else if (orderMode === 'newold') {
-                // ↕️ → 🔁
-                loopMode = 'all';
-                orderMode = 'az';
-            } else if (loopMode === 'all') {
-                // 🔁 → 🔂
-                loopMode = 'one';
-                orderMode = 'az';
-            } else if (loopMode === 'one') {
-                // 🔂 → 🔀
+        // ---- 播放模式：4 态统一入口 ----
+        var MODE_ORDER = ['shuffle', 'newold', 'newold-one', 'all', 'one'];
+        var MODE_LABELS = {
+            shuffle: '随机播放',
+            newold: '新旧顺序',
+            'newold-one': '新旧顺序单曲',
+            one: '单曲循环',
+            all: '全部循环'
+        };
+
+        function getCurrentModeId() {
+            if (shuffleMode) return 'shuffle';
+            if (orderMode === 'newold' && loopMode === 'one') return 'newold-one';
+            if (orderMode === 'newold') return 'newold';
+            if (loopMode === 'one') return 'one';
+            if (loopMode === 'all') return 'all';
+            return null; // 关闭循环（Ctrl+L），不在菜单里
+        }
+
+        function updateModeMenuActive() {
+            var menu = document.getElementById('bgm-mode-menu');
+            if (!menu) return;
+            var cur = getCurrentModeId();
+            var items = menu.querySelectorAll('.bgm-mode-item');
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].getAttribute('data-mode') === cur) {
+                    items[i].classList.add('active');
+                } else {
+                    items[i].classList.remove('active');
+                }
+            }
+            updateModeRed();
+        }
+
+        // 同一时间只允许一个图标变红：优先鼠标悬停项，否则当前模式
+        function updateModeRed() {
+            var menu = document.getElementById('bgm-mode-menu');
+            if (!menu) return;
+            var items = menu.querySelectorAll('.bgm-mode-item');
+            var target = modeHoverItem || menu.querySelector('.bgm-mode-item.active');
+            for (var i = 0; i < items.length; i++) {
+                if (items[i] === target) {
+                    items[i].classList.add('red');
+                } else {
+                    items[i].classList.remove('red');
+                }
+            }
+        }
+
+        function applyBgmMode(id) {
+            if (id === 'shuffle') {
                 shuffleMode = true;
                 loopMode = 'all';
                 orderMode = 'az';
                 initShuffleQueue();
-            } else {
-                // 关闭循环 → ↕️
+            } else if (id === 'newold') {
                 shuffleMode = false;
                 loopMode = 'all';
                 orderMode = 'newold';
+            } else if (id === 'newold-one') {
+                shuffleMode = false;
+                loopMode = 'one';
+                orderMode = 'newold';
+            } else if (id === 'one') {
+                shuffleMode = false;
+                loopMode = 'one';
+                orderMode = 'az';
+            } else if (id === 'all') {
+                shuffleMode = false;
+                loopMode = 'all';
+                orderMode = 'az';
+            } else {
+                return;
             }
             refreshBgmUI();
             saveBgmState();
             refreshPlaylistOrder();
-            var label = shuffleMode ? '随机播放'
-                      : (orderMode === 'newold' ? '新旧顺序'
-                      : (loopMode === 'one' ? '单曲循环' : '全部循环'));
-            console.log('[BGM] 模式切换: ' + label);
+            console.log('[BGM] 模式切换: ' + MODE_LABELS[id]);
+        }
+
+        function cycleBgmMode() {
+            var cur = getCurrentModeId();
+            if (!cur) {
+                // 关闭循环 → ↕️（保持原来的循环顺序）
+                applyBgmMode('newold');
+                return;
+            }
+            var idx = MODE_ORDER.indexOf(cur);
+            applyBgmMode(MODE_ORDER[(idx + 1) % MODE_ORDER.length]);
         }
 
         // 渲染播放列表 DOM（顺序跟随播放模式：A-Z / ↕️ 新→旧）
@@ -1806,10 +1905,206 @@
         });
 
         // 绑定 BGM 控制栏按钮
-        document.getElementById('bgm-mode-btn').addEventListener('click', function(e) {
+        var modeBtnEl = document.getElementById('bgm-mode-btn');
+        var modeMenuEl = document.getElementById('bgm-mode-menu');
+        var MODE_LONG_PRESS_MS = 380;
+        var MODE_MOVE_CANCEL_PX = 12;
+        var modePressTimer = 0;
+        var modeMenuOpen = false;
+        var modePressPointerId = null;
+        var modePressStartX = 0;
+        var modePressStartY = 0;
+        var modeHoverItem = null;
+        var suppressModeClick = false;
+        var menuSelectionAt = 0;
+
+        function setModeHover(item) {
+            if (modeHoverItem === item) return;
+            if (modeHoverItem) modeHoverItem.classList.remove('hover');
+            modeHoverItem = item;
+            if (item) item.classList.add('hover');
+            updateModeRed();
+        }
+
+        function modeItemAt(x, y) {
+            var el = document.elementFromPoint(x, y);
+            if (!el || !el.closest) return null;
+            var item = el.closest('.bgm-mode-item');
+            return (item && modeMenuEl && modeMenuEl.contains(item)) ? item : null;
+        }
+
+        function positionModeMenu() {
+            if (!modeMenuEl || !modeBtnEl) return;
+            var controls = document.getElementById('bgm-controls');
+            if (!controls) return;
+            var cRect = controls.getBoundingClientRect();
+            var menuW = modeMenuEl.offsetWidth;
+            var margin = 8;
+            // 用布局位置而不是 getBoundingClientRect，避免按钮按压缩放导致箭头偏移
+            var btnLeft = cRect.left + modeBtnEl.offsetLeft;
+            var btnW = modeBtnEl.offsetWidth;
+            // 以模式按钮中心对齐菜单中心
+            var leftViewport = btnLeft + btnW / 2 - menuW / 2;
+            if (leftViewport + menuW > window.innerWidth - margin) {
+                leftViewport = window.innerWidth - margin - menuW;
+            }
+            if (leftViewport < margin) leftViewport = margin;
+            modeMenuEl.style.left = (leftViewport - cRect.left) + 'px';
+
+            // 箭头对准模式按钮中心
+            var arrowX = btnLeft + btnW / 2 - leftViewport - 4;
+            arrowX = Math.max(10, Math.min(menuW - 20, arrowX));
+            modeMenuEl.style.setProperty('--menu-arrow', arrowX + 'px');
+            modeMenuEl.style.setProperty('--menu-origin-x', (arrowX + 4) + 'px');
+        }
+
+        function openModeMenu() {
+            if (!modeMenuEl || !modeBtnEl) return;
+            setModeHover(null);
+            updateModeMenuActive();
+            positionModeMenu();
+            modeMenuEl.classList.add('open');
+            modeBtnEl.setAttribute('aria-expanded', 'true');
+        }
+
+        function closeModeMenu() {
+            if (!modeMenuEl) return;
+            modeMenuEl.classList.remove('open');
+            if (modeBtnEl) modeBtnEl.setAttribute('aria-expanded', 'false');
+            setModeHover(null);
+        }
+
+        function cancelModePress() {
+            if (modePressTimer) {
+                clearTimeout(modePressTimer);
+                modePressTimer = 0;
+            }
+            if (modeBtnEl) modeBtnEl.classList.remove('pressing');
+        }
+
+        function suppressNextModeClick() {
+            suppressModeClick = true;
+            setTimeout(function() { suppressModeClick = false; }, 160);
+        }
+
+        modeBtnEl.addEventListener('click', function(e) {
             e.preventDefault();
+            if (suppressModeClick) {
+                suppressModeClick = false;
+                return;
+            }
             cycleBgmMode();
         });
+
+        modeBtnEl.addEventListener('pointerdown', function(e) {
+            if (e.button !== undefined && e.button !== 0) return;
+            if (modeMenuOpen) return;
+            modePressPointerId = e.pointerId;
+            modePressStartX = e.clientX;
+            modePressStartY = e.clientY;
+            suppressModeClick = false;
+            cancelModePress();
+            modeBtnEl.classList.add('pressing');
+            modePressTimer = setTimeout(function() {
+                modePressTimer = 0;
+                modeMenuOpen = true;
+                modeBtnEl.classList.remove('pressing');
+                try { modeBtnEl.setPointerCapture(modePressPointerId); } catch (err) {}
+                openModeMenu();
+            }, MODE_LONG_PRESS_MS);
+        });
+
+        window.addEventListener('pointermove', function(e) {
+            if (modePressPointerId === null || e.pointerId !== modePressPointerId) return;
+            if (!modeMenuOpen) {
+                var dx = e.clientX - modePressStartX;
+                var dy = e.clientY - modePressStartY;
+                if (dx * dx + dy * dy > MODE_MOVE_CANCEL_PX * MODE_MOVE_CANCEL_PX) {
+                    cancelModePress();
+                    modePressPointerId = null;
+                }
+                return;
+            }
+            setModeHover(modeItemAt(e.clientX, e.clientY));
+        });
+
+        window.addEventListener('pointerup', function(e) {
+            if (modePressPointerId === null || e.pointerId !== modePressPointerId) return;
+            var wasOpen = modeMenuOpen;
+            var item = wasOpen ? modeItemAt(e.clientX, e.clientY) : null;
+
+            cancelModePress();
+            modePressPointerId = null;
+            modeMenuOpen = false;
+
+            if (wasOpen) {
+                closeModeMenu();
+                suppressNextModeClick();
+                if (item) {
+                    menuSelectionAt = Date.now();
+                    applyBgmMode(item.getAttribute('data-mode'));
+                }
+            }
+            try { modeBtnEl.releasePointerCapture(e.pointerId); } catch (err) {}
+        });
+
+        window.addEventListener('pointercancel', function(e) {
+            if (modePressPointerId === null || e.pointerId !== modePressPointerId) return;
+            var wasOpen = modeMenuOpen;
+            cancelModePress();
+            modePressPointerId = null;
+            modeMenuOpen = false;
+            if (wasOpen) {
+                closeModeMenu();
+                suppressNextModeClick();
+            }
+        });
+
+        modeBtnEl.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+        });
+        if (modeMenuEl) {
+            modeMenuEl.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+            });
+        }
+        modeBtnEl.addEventListener('dragstart', function(e) {
+            e.preventDefault();
+        });
+
+        window.addEventListener('resize', function() {
+            cancelModePress();
+            modePressPointerId = null;
+            if (modeMenuOpen) {
+                modeMenuOpen = false;
+                closeModeMenu();
+            }
+        });
+        window.addEventListener('blur', function() {
+            cancelModePress();
+            modePressPointerId = null;
+            if (modeMenuOpen) {
+                modeMenuOpen = false;
+                closeModeMenu();
+            }
+        });
+
+        // 菜单项：错开入场动画 + 键盘/点击兜底
+        if (modeMenuEl) {
+            var modeItems = modeMenuEl.querySelectorAll('.bgm-mode-item');
+            for (var mi = 0; mi < modeItems.length; mi++) {
+                modeItems[mi].style.setProperty('--d', (mi * 30) + 'ms');
+                modeItems[mi].addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (Date.now() - menuSelectionAt < 300) return; // 长按松手已处理
+                    applyBgmMode(this.getAttribute('data-mode'));
+                    closeModeMenu();
+                    suppressNextModeClick();
+                });
+            }
+        }
+
         document.getElementById('bgm-prev-btn').addEventListener('click', function(e) {
             e.preventDefault();
             prevSong();

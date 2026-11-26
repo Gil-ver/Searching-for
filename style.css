@@ -620,7 +620,7 @@ img {
 }
 
 
-/* 搜索建议下拉 — 搜索框向下延伸，共享边框，最多7条 */
+/* 搜索建议下拉 — 搜索框向下延伸，共享边框，最多10条 */
 #search-suggestions {
     display: none;
     position: relative;
@@ -676,9 +676,41 @@ img {
 }
 
 .suggest-item-text {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* 历史记录单条删除按钮 */
+.history-delete {
+    flex-shrink: 0;
+    margin-left: auto;
+    width: 22px;
+    height: 22px;
+    padding: 0 0 2px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #b0b4bf;
+    font-family: Arial, sans-serif;
+    font-size: 19px;
+    line-height: 18px;
+    text-align: center;
+    cursor: pointer;
+    opacity: 0.75;
+    transition: color .15s, background .15s, opacity .15s;
+}
+
+.suggest-item:hover .history-delete,
+.history-delete:focus-visible {
+    opacity: 1;
+}
+
+.history-delete:hover {
+    color: #d93025;
+    background: #ffeceb;
+    opacity: 1;
 }
 
 /* hover 和键盘选中共用 .active 样式 */
@@ -754,6 +786,146 @@ img {
 .bgm-btn:disabled {
     cursor: not-allowed;
     opacity: 0.4;
+}
+
+/* 模式按钮长按反馈 */
+#bgm-mode-btn {
+    position: relative;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    user-select: none;
+    transition: transform .12s ease, filter .12s ease;
+}
+#bgm-mode-btn.pressing {
+    transform: scale(.86);
+}
+
+/* 长按弹出的横向模式菜单 */
+.bgm-mode-menu {
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 0;
+    display: flex;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, .78);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, .14), inset 0 0 0 1px rgba(255, 255, 255, .6);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(4px) scale(.94);
+    transform-origin: var(--menu-origin-x, 26px) bottom;
+    transition: opacity .12s ease, transform .16s ease, visibility .12s;
+    z-index: 60;
+}
+.bgm-mode-menu.open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+    transition: opacity .1s ease, transform .18s cubic-bezier(.2, .8, .2, 1), visibility 0s;
+}
+/* 指向模式按钮的小三角：用 clip-path 裁成三角形，避免旋转正方形的半透明叠加痕迹 */
+.bgm-mode-menu::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: var(--menu-arrow, 26px);
+    width: 8px;
+    height: 4px;
+    background: rgba(255, 255, 255, .78);
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+    pointer-events: none;
+}
+.bgm-mode-item {
+    position: relative;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: #333;
+    font-family: inherit;
+    cursor: pointer;
+    transition: transform .12s;
+}
+.bgm-mode-icon {
+    position: relative;
+    font-size: 21px;
+    line-height: 1;
+    transition: filter .12s ease;
+}
+/* 新旧顺序单曲：左下角小 ① 徽标 */
+#bgm-mode-btn.mode-newold-one::after,
+.bgm-mode-item[data-mode="newold-one"] .bgm-mode-icon::after {
+    content: '1';
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #fff;
+    color: #315efb;
+    font: 700 4px/5px Arial, sans-serif;
+    text-align: center;
+    box-shadow: 0 0 0 1px #569eff;
+    pointer-events: none;
+    z-index: 1;
+}
+/* 两个锚点盒子高度不同，分开定位，保证 ① 相对蓝色方块的位置一致 */
+.bgm-mode-item[data-mode="newold-one"] .bgm-mode-icon::after {
+    left: 8.25px;
+    bottom: 4.5px;
+}
+#bgm-mode-btn.mode-newold-one::after {
+    left: 8.75px;
+    bottom: 6px;
+}
+.bgm-mode-item.hover,
+.bgm-mode-item:hover {
+    transform: scale(1.06);
+}
+/* 当前模式 / 拖选中的模式：单一红色目标，沿用长按按钮的滤镜 */
+.bgm-mode-item.red .bgm-mode-icon {
+    filter: hue-rotate(160deg) saturate(5);
+}
+.bgm-mode-item:focus-visible {
+    outline: 2px solid #315efb;
+    outline-offset: 2px;
+}
+.bgm-mode-menu.open .bgm-mode-item {
+    animation: bgmModeItemIn .16s ease backwards;
+    animation-delay: var(--d, 0s);
+}
+@keyframes bgmModeItemIn {
+    from { opacity: 0; transform: translateY(3px) scale(.94); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media screen and (max-width: 768px) {
+    .bgm-mode-menu {
+        gap: 3px;
+        padding: 3px;
+    }
+    .bgm-mode-item {
+        width: 24px;
+        height: 24px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #bgm-mode-btn,
+    .bgm-mode-menu,
+    .bgm-mode-item {
+        transition: none !important;
+        animation: none !important;
+    }
 }
 
 /* BGM 播放列表面板 — 毛玻璃浮层，无描边，固定宽度 */
